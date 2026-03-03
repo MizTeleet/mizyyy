@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetMusic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="splash" class="splash active">
+      <div class="splash-logo">LeetMusic</div>
+      <p>Твоя музыка. Твой стиль. Оффлайн.</p>
+    </div>
+
+    <div id="app" class="app hidden">
+      <header class="topbar glass">
+        <div>
+          <h1 class="logo">LeetMusic</h1>
+          <small id="libraryStatus">Загрузка библиотеки LeetMusic...</small>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="library glass">
+          <div class="tabs">
+            <button class="tab active" data-tab="recommended">Рекомендую</button>
+            <button class="tab" data-tab="liked">Любимые</button>
+            <button class="tab" data-tab="playlists">Плейлисты</button>
+          </div>
+
+          <div class="tab-content active" id="tab-recommended"><ul id="trackList" class="track-list"></ul></div>
+          <div class="tab-content" id="tab-liked"><ul id="likedList" class="track-list"></ul></div>
+          <div class="tab-content" id="tab-playlists">
+            <div class="playlist-card">
+              <h3>Плейлисты</h3>
+              <p>Любимые — твой быстрый плейлист. Добавляй лайки ❤️</p>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <section id="playerDock" class="player-dock">
+        <img id="coverPreview" src="" alt="Обложка" class="dock-cover open-details" />
+        <div class="dock-meta open-details">
+          <h2 id="trackTitle">Выберите трек</h2>
+          <p id="trackArtist">Исполнитель неизвестен</p>
+        </div>
+        <button id="prevBtn" class="icon-btn">⏮</button>
+        <button id="playPauseBtn" class="icon-btn accent">▶</button>
+        <button id="nextBtn" class="icon-btn">⏭</button>
+        <button id="repeatBtn" class="icon-btn" title="Повтор текущего трека выкл">➡</button>
+        <span id="timeCurrent">0:00</span>
+        <input id="seekBar" type="range" min="0" max="100" value="0" />
+        <span id="timeTotal">0:00</span>
+        <button id="likeBtn" class="icon-btn">♡</button>
+      </section>
+
+      <audio id="audio"></audio>
+
+      <section id="detailModal" class="detail-modal hidden" aria-hidden="true">
+        <div class="detail-card glass">
+          <button id="closeDetailBtn" class="close-btn">✕</button>
+          <img id="detailCover" src="" alt="Обложка трека" />
+
+          <div class="detail-controls">
+            <button id="detailPrevBtn" class="icon-btn">⏮</button>
+            <button id="detailPlayPauseBtn" class="icon-btn accent large">▶</button>
+            <button id="detailNextBtn" class="icon-btn">⏭</button>
+            <button id="detailRepeatBtn" class="icon-btn" title="Повтор текущего трека выкл">➡</button>
+          </div>
+
+          <div class="detail-actions">
+            <button id="showEqBtn" class="hex-btn" title="Эквалайзер">⬢</button>
+            <button id="muteBtn" class="icon-btn">🔊</button>
+            <input id="volumeBar" type="range" min="0" max="1" step="0.01" value="1" />
+            <button id="coverPickerBtn" class="btn tiny">Сменить фото</button>
+            <input id="coverInput" type="file" accept="image/*" hidden />
+          </div>
+
+          <div id="eqPanel" class="eq-panel hidden">
+            <h3>Эквалайзер</h3>
+            <div class="eq-presets">
+              <button class="preset" data-preset="flat">Стандарт</button>
+              <button class="preset" data-preset="bass">Низкие частоты</button>
+              <button class="preset" data-preset="vocal">Низкие + высокие (вокал)</button>
+              <button class="preset" data-preset="party">Party</button>
+            </div>
+            <div class="sliders">
+              <label>Низкие <input id="bassSlider" type="range" min="-20" max="20" value="0" /></label>
+              <label>Средние <input id="midSlider" type="range" min="-20" max="20" value="0" /></label>
+              <label>Высокие <input id="trebleSlider" type="range" min="-20" max="20" value="0" /></label>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script src="app.js" defer></script>
+  </body>
+</html>
