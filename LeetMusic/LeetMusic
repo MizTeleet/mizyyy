@@ -1,0 +1,26 @@
+#!/usr/bin/env python3
+import os
+import webbrowser
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+
+PORT = 4173
+
+
+def main():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(base_dir)
+    url = f"http://127.0.0.1:{PORT}"
+    webbrowser.open(url)
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), SimpleHTTPRequestHandler)
+    print(f"LeetMusic запущен: {url}")
+    print("Чтобы остановить, закройте окно терминала или нажмите Ctrl+C.")
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+
+
+if __name__ == "__main__":
+    main()
