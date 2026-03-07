@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import time
 from pathlib import Path
 import tkinter as tk
@@ -14,12 +15,54 @@ REPEAT_ONE = "one"
 REPEAT_ALL = "all"
 
 
+class SplashScreen(tk.Toplevel):
+    def __init__(self, master: tk.Tk) -> None:
+        super().__init__(master)
+        self.overrideredirect(True)
+        self.configure(bg="#07090f")
+        self.geometry("680x380+220+180")
+        self.attributes("-topmost", True)
+
+        self.canvas = tk.Canvas(self, bg="#07090f", highlightthickness=0)
+        self.canvas.pack(fill="both", expand=True)
+
+        self.blobs = [
+            self.canvas.create_oval(70, 60, 360, 290, fill="#f4d125", outline=""),
+            self.canvas.create_oval(250, 50, 560, 300, fill="#ff8a00", outline=""),
+            self.canvas.create_oval(200, 120, 500, 340, fill="#ff3cac", outline=""),
+        ]
+        self.title_txt = self.canvas.create_text(
+            340,
+            185,
+            text="LeetMusic",
+            fill="#fff7d6",
+            font=("Segoe UI", 42, "bold"),
+        )
+
+        self.start = time.time()
+        self._animate()
+
+    def _animate(self) -> None:
+        t = time.time() - self.start
+        for idx, blob in enumerate(self.blobs):
+            phase = t * (0.9 + idx * 0.2)
+            dx = math.sin(phase) * 1.5
+            dy = math.cos(phase * 1.2) * 1.2
+            self.canvas.move(blob, dx, dy)
+        pulse = 36 + int(math.sin(t * 2.4) * 3)
+        self.canvas.itemconfig(self.title_txt, font=("Segoe UI", pulse, "bold"))
+        if t < 1.8:
+            self.after(16, self._animate)
+        else:
+            self.destroy()
+
+
 class LeetMusicDesktop:
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title("LeetMusic EXE")
-        self.root.geometry("980x620")
-        self.root.configure(bg="#131722")
+        self.root.geometry("1220x760")
+        self.root.configure(bg="#0b0d13")
 
         self.base_dir = Path(__file__).resolve().parent
         self.music_dir = self.base_dir / "Music"
@@ -27,12 +70,18 @@ class LeetMusicDesktop:
         self.state_file = self.base_dir / "leetmusic_state.json"
 
         self.tracks: list[Path] = []
+        self.track_lengths: dict[str, float] = {}
         self.current_index = -1
         self.repeat_mode = REPEAT_OFF
         self.is_paused = False
 
+        self.play_started_at = 0.0
+        self.paused_at = 0.0
+        self.seek_position = 0.0
+        self.seeking = False
+
         pygame.init()
-        pygame.mixer.init()
+        pygame.mixer.init(buffer=1024)
 
         self.state = self._load_state()
 
@@ -45,61 +94,61 @@ class LeetMusicDesktop:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _build_ui(self) -> None:
-        title = tk.Label(
-            self.root,
-            text="LeetMusic",
-            font=("Segoe Script", 30, "bold"),
-            bg="#131722",
-            fg="#f0f3ff",
+        root_wrap = tk.Frame(self.root, bg="#0b0d13")
+        root_wrap.pack(fill="both", expand=True)
+
+        sidebar = tk.Frame(root_wrap, bg="#080b11", width=70)
+        sidebar.pack(side="left", fill="y")
+        sidebar.pack_propagate(False)
+
+        tk.Label(sidebar, text="✶", bg="#080b11", fg="#f4d125", font=("Segoe UI", 32)).pack(pady=(14, 24))
+        for icon in ("⌕", "♫", "♡", "☰"):
+            tk.Label(sidebar, text=icon, bg="#080b11", fg="#d0d7eb", font=("Segoe UI", 20)).pack(pady=14)
+
+        content = tk.Frame(root_wrap, bg="#0b0d13")
+        content.pack(side="left", fill="both", expand=True)
+
+        top = tk.Frame(content, bg="#0b0d13")
+        top.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # hero area
+        hero = tk.Canvas(top, bg="#0b0d13", highlightthickness=0)
+        hero.pack(fill="both", expand=True)
+        self.hero = hero
+        self.hero_blobs = [
+            hero.create_oval(100, 40, 900, 650, fill="#f4d125", outline=""),
+            hero.create_oval(280, 120, 1100, 620, fill="#ff5a00", outline=""),
+            hero.create_oval(260, 200, 900, 710, fill="#d32fff", outline=""),
+        ]
+        hero.create_rectangle(0, 0, 2000, 2000, fill="#000", stipple="gray50", outline="")
+        hero.create_text(470, 290, text="▶ Моя волна", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
+
+        self.info_chip = tk.Label(
+            top,
+            text="Локальная коллекция",
+            bg="#2d2f36",
+            fg="#fff4cc",
+            font=("Segoe UI", 11, "bold"),
+            padx=14,
+            pady=6,
         )
-        title.pack(anchor="w", padx=16, pady=(10, 4))
+        self.info_chip.place(x=420, y=335)
 
-        subtitle = tk.Label(
-            self.root,
-            text="EXE-версия. Музыка загружается из папки desktop_exe/Music",
-            bg="#131722",
-            fg="#95a1c0",
-            font=("Segoe UI", 10),
-        )
-        subtitle.pack(anchor="w", padx=18, pady=(0, 8))
+        library_panel = tk.Frame(top, bg="#171b27", highlightthickness=1, highlightbackground="#313a52")
+        library_panel.place(x=24, y=430, width=420, height=230)
 
-        layout = tk.Frame(self.root, bg="#131722")
-        layout.pack(fill="both", expand=True, padx=12, pady=(0, 10))
+        lib_head = tk.Frame(library_panel, bg="#171b27")
+        lib_head.pack(fill="x", padx=10, pady=8)
 
-        # Library panel
-        library = tk.Frame(layout, bg="#1b2130", highlightthickness=1, highlightbackground="#313a52")
-        library.pack(side="left", fill="both", expand=True)
-
-        lib_header = tk.Frame(library, bg="#1b2130")
-        lib_header.pack(fill="x", padx=10, pady=8)
-
-        tk.Button(
-            lib_header,
-            text="Обновить",
-            command=self._refresh_and_render,
-            bg="#2b3348",
-            fg="#e9eeff",
-            relief="flat",
-            padx=10,
-        ).pack(side="left", padx=(0, 8))
-
-        tk.Button(
-            lib_header,
-            text="Добавить файлы в Music",
-            command=self._import_files,
-            bg="#2b3348",
-            fg="#e9eeff",
-            relief="flat",
-            padx=10,
-        ).pack(side="left")
-
-        self.library_status = tk.Label(lib_header, text="", bg="#1b2130", fg="#95a1c0")
+        tk.Button(lib_head, text="Обновить", command=self._refresh_and_render, bg="#283149", fg="#eaf0ff", relief="flat").pack(side="left", padx=(0, 6))
+        tk.Button(lib_head, text="Импорт", command=self._import_files, bg="#283149", fg="#eaf0ff", relief="flat").pack(side="left")
+        self.library_status = tk.Label(lib_head, text="", bg="#171b27", fg="#95a1c0")
         self.library_status.pack(side="right")
 
         self.track_listbox = tk.Listbox(
-            library,
-            bg="#141a28",
-            fg="#eaf0ff",
+            library_panel,
+            bg="#111724",
+            fg="#edf2ff",
             selectbackground="#f4d125",
             selectforeground="#1a1a1a",
             borderwidth=0,
@@ -109,101 +158,120 @@ class LeetMusicDesktop:
         self.track_listbox.pack(fill="both", expand=True, padx=10, pady=(0, 10))
         self.track_listbox.bind("<<ListboxSelect>>", self._on_select_track)
 
-        # Player panel
-        player = tk.Frame(layout, bg="#1b2130", width=300, highlightthickness=1, highlightbackground="#313a52")
-        player.pack(side="right", fill="y", padx=(12, 0))
-        player.pack_propagate(False)
-
-        self.now_title = tk.Label(player, text="Выберите трек", bg="#1b2130", fg="#f0f3ff", font=("Segoe UI", 13, "bold"), wraplength=260, justify="left")
+        # now panel
+        self.now_card = tk.Frame(top, bg="#171b27", highlightthickness=1, highlightbackground="#313a52")
+        self.now_card.place(x=470, y=430, width=420, height=230)
+        self.now_title = tk.Label(self.now_card, text="Выберите трек", bg="#171b27", fg="#ffffff", font=("Segoe UI", 16, "bold"), wraplength=390)
         self.now_title.pack(anchor="w", padx=14, pady=(14, 2))
+        self.now_artist = tk.Label(self.now_card, text="LeetMusic Desktop", bg="#171b27", fg="#95a1c0", font=("Segoe UI", 10))
+        self.now_artist.pack(anchor="w", padx=14)
 
-        self.now_artist = tk.Label(player, text="LeetMusic Desktop", bg="#1b2130", fg="#95a1c0", font=("Segoe UI", 10))
-        self.now_artist.pack(anchor="w", padx=14, pady=(0, 10))
+        # dock
+        dock = tk.Frame(content, bg="#3a2942", height=84)
+        dock.pack(fill="x", padx=10, pady=(0, 10))
+        dock.pack_propagate(False)
 
-        control_row = tk.Frame(player, bg="#1b2130")
-        control_row.pack(fill="x", padx=12, pady=6)
+        left_meta = tk.Frame(dock, bg="#3a2942")
+        left_meta.pack(side="left", fill="y", padx=12)
+        self.mini_title = tk.Label(left_meta, text="LeetMusic", bg="#3a2942", fg="#fff", font=("Segoe UI", 12, "bold"))
+        self.mini_title.pack(anchor="w", pady=(14, 0))
+        self.mini_sub = tk.Label(left_meta, text="Оффлайн плеер", bg="#3a2942", fg="#c8cde0", font=("Segoe UI", 10))
+        self.mini_sub.pack(anchor="w")
 
-        self.prev_btn = tk.Button(control_row, text="⏮", command=self._play_prev, width=4, bg="#2a3248", fg="#fff", relief="flat")
-        self.prev_btn.pack(side="left", padx=4)
+        controls = tk.Frame(dock, bg="#3a2942")
+        controls.pack(side="left", padx=14)
 
-        self.play_btn = tk.Button(control_row, text="▶", command=self._toggle_play_pause, width=5, bg="#f4d125", fg="#181818", relief="flat")
-        self.play_btn.pack(side="left", padx=4)
+        self.like_btn = tk.Button(controls, text="♡", command=self._toggle_like_current, width=3, bg="#4a3953", fg="#fff", relief="flat")
+        self.like_btn.grid(row=0, column=0, padx=4)
+        self.prev_btn = tk.Button(controls, text="⏮", command=self._play_prev, width=3, bg="#4a3953", fg="#fff", relief="flat")
+        self.prev_btn.grid(row=0, column=1, padx=4)
+        self.play_btn = tk.Button(controls, text="▶", command=self._toggle_play_pause, width=3, bg="#f4d125", fg="#171717", relief="flat")
+        self.play_btn.grid(row=0, column=2, padx=4)
+        self.next_btn = tk.Button(controls, text="⏭", command=self._play_next, width=3, bg="#4a3953", fg="#fff", relief="flat")
+        self.next_btn.grid(row=0, column=3, padx=4)
+        self.repeat_btn = tk.Button(controls, text="➡", command=self._switch_repeat_mode, width=3, bg="#4a3953", fg="#fff", relief="flat")
+        self.repeat_btn.grid(row=0, column=4, padx=4)
 
-        self.next_btn = tk.Button(control_row, text="⏭", command=self._play_next, width=4, bg="#2a3248", fg="#fff", relief="flat")
-        self.next_btn.pack(side="left", padx=4)
-
-        self.like_btn = tk.Button(control_row, text="♡", command=self._toggle_like_current, width=4, bg="#2a3248", fg="#fff", relief="flat")
-        self.like_btn.pack(side="left", padx=4)
-
-        self.repeat_btn = tk.Button(control_row, text="➡", command=self._switch_repeat_mode, width=4, bg="#2a3248", fg="#fff", relief="flat")
-        self.repeat_btn.pack(side="left", padx=4)
+        progress_wrap = tk.Frame(dock, bg="#3a2942")
+        progress_wrap.pack(side="left", fill="x", expand=True, padx=8)
 
         self.progress_var = tk.DoubleVar(value=0)
         self.progress = tk.Scale(
-            player,
+            progress_wrap,
             variable=self.progress_var,
             from_=0,
             to=100,
             orient="horizontal",
             showvalue=False,
-            command=self._seek,
-            bg="#1b2130",
-            fg="#95a1c0",
-            troughcolor="#2f394f",
+            bg="#3a2942",
+            fg="#fff",
+            troughcolor="#5f4b68",
             highlightthickness=0,
+            relief="flat",
+            length=420,
         )
-        self.progress.pack(fill="x", padx=12, pady=(10, 2))
+        self.progress.pack(fill="x", pady=(12, 2))
+        self.progress.bind("<ButtonPress-1>", self._begin_seek)
+        self.progress.bind("<B1-Motion>", self._preview_seek)
+        self.progress.bind("<ButtonRelease-1>", self._commit_seek)
 
-        self.time_label = tk.Label(player, text="0:00 / 0:00", bg="#1b2130", fg="#95a1c0")
-        self.time_label.pack(anchor="w", padx=14)
+        info_row = tk.Frame(progress_wrap, bg="#3a2942")
+        info_row.pack(fill="x")
+        self.time_label = tk.Label(info_row, text="0:00 / 0:00", bg="#3a2942", fg="#d5dbef")
+        self.time_label.pack(side="left")
 
-        volume_row = tk.Frame(player, bg="#1b2130")
-        volume_row.pack(fill="x", padx=12, pady=(10, 6))
-
-        tk.Label(volume_row, text="Громкость", bg="#1b2130", fg="#95a1c0").pack(side="left")
+        right = tk.Frame(dock, bg="#3a2942")
+        right.pack(side="right", padx=12)
+        tk.Label(right, text="Громк.", bg="#3a2942", fg="#d5dbef").pack(side="left", padx=(0, 4))
         self.volume = tk.Scale(
-            volume_row,
+            right,
             from_=0,
             to=100,
             orient="horizontal",
             showvalue=False,
             command=self._set_volume,
-            bg="#1b2130",
-            fg="#95a1c0",
-            troughcolor="#2f394f",
+            bg="#3a2942",
+            fg="#d5dbef",
+            troughcolor="#5f4b68",
             highlightthickness=0,
-            length=160,
+            relief="flat",
+            length=120,
         )
         self.volume.set(85)
-        self.volume.pack(side="right")
+        self.volume.pack(side="left")
         pygame.mixer.music.set_volume(0.85)
 
-        help_text = (
-            "Режимы повтора:\n"
-            "➡ — следующий трек\n"
-            "🔂 — повтор одного\n"
-            "🔁 — повтор всего списка"
-        )
-        tk.Label(player, text=help_text, justify="left", bg="#1b2130", fg="#95a1c0").pack(anchor="w", padx=14, pady=(8, 0))
+        self._animate_hero(0)
+
+    def _animate_hero(self, step: int) -> None:
+        t = step / 30
+        offsets = [(math.sin(t) * 1.2, math.cos(t * 1.3) * 1.1), (math.cos(t * 0.9) * 1.4, math.sin(t) * 0.9), (math.sin(t * 1.2) * 1.0, math.cos(t * 0.8) * 1.3)]
+        for blob, (dx, dy) in zip(self.hero_blobs, offsets):
+            self.hero.move(blob, dx, dy)
+        self.root.after(40, lambda: self._animate_hero(step + 1))
 
     def _refresh_tracks(self) -> None:
         self.tracks = sorted(
             [p for p in self.music_dir.iterdir() if p.is_file() and p.suffix.lower() in AUDIO_EXTENSIONS],
             key=lambda p: p.name.lower(),
         )
+        self.track_lengths.clear()
+        for track in self.tracks:
+            try:
+                self.track_lengths[track.as_posix()] = float(pygame.mixer.Sound(track.as_posix()).get_length())
+            except pygame.error:
+                self.track_lengths[track.as_posix()] = 0.0
         self.library_status.config(text=f"Треков: {len(self.tracks)}")
 
     def _render_track_list(self) -> None:
         self.track_listbox.delete(0, tk.END)
         liked = set(self.state.get("liked", []))
-
         if not self.tracks:
             self.track_listbox.insert(tk.END, "Нет треков в папке Music")
             return
-
         for idx, track in enumerate(self.tracks):
-            mark = "♥ " if track.name in liked else ""
-            self.track_listbox.insert(tk.END, f"{mark}{idx + 1}. {track.name}")
+            heart = "♥ " if track.name in liked else ""
+            self.track_listbox.insert(tk.END, f"{heart}{idx + 1}. {track.stem}")
 
     def _refresh_and_render(self) -> None:
         self._refresh_tracks()
@@ -226,24 +294,32 @@ class LeetMusicDesktop:
 
     def _on_select_track(self, _event=None) -> None:
         sel = self.track_listbox.curselection()
-        if not sel:
-            return
-        if not self.tracks:
+        if not sel or not self.tracks:
             return
         idx = sel[0]
-        if idx >= len(self.tracks):
-            return
-        self._play_track(idx)
+        if idx < len(self.tracks):
+            self._play_track(idx, 0.0)
 
-    def _play_track(self, idx: int) -> None:
+    def _play_track(self, idx: int, start_pos: float = 0.0) -> None:
         if idx < 0 or idx >= len(self.tracks):
             return
         self.current_index = idx
         track = self.tracks[idx]
-        pygame.mixer.music.load(track.as_posix())
-        pygame.mixer.music.play()
+
+        try:
+            pygame.mixer.music.load(track.as_posix())
+            pygame.mixer.music.play(start=max(0.0, start_pos))
+        except pygame.error:
+            pygame.mixer.music.play()
+
         self.is_paused = False
+        self.seek_position = max(0.0, start_pos)
+        self.play_started_at = time.time() - self.seek_position
+        self.paused_at = self.seek_position
+
         self.now_title.config(text=track.stem)
+        self.mini_title.config(text=track.stem)
+        self.mini_sub.config(text=track.name)
         self.play_btn.config(text="❚❚")
         self._update_like_button()
 
@@ -257,17 +333,22 @@ class LeetMusicDesktop:
         if self.is_paused:
             pygame.mixer.music.unpause()
             self.is_paused = False
+            self.play_started_at = time.time() - self.paused_at
             self.play_btn.config(text="❚❚")
         else:
-            if pygame.mixer.music.get_busy():
-                pygame.mixer.music.pause()
-                self.is_paused = True
-                self.play_btn.config(text="▶")
-            else:
-                self._play_track(self.current_index)
+            pygame.mixer.music.pause()
+            self.is_paused = True
+            self.paused_at = self._current_elapsed()
+            self.play_btn.config(text="▶")
 
     def _play_prev(self) -> None:
         if not self.tracks:
+            return
+        if self.current_index == -1:
+            self._play_track(0)
+            return
+        if self._current_elapsed() > 3:
+            self._play_track(self.current_index, 0.0)
             return
         if self.current_index <= 0:
             self._play_track(len(self.tracks) - 1 if self.repeat_mode == REPEAT_ALL else 0)
@@ -286,14 +367,30 @@ class LeetMusicDesktop:
             return
         self._play_track(self.current_index + 1)
 
-    def _seek(self, _value: str) -> None:
+    def _begin_seek(self, _event=None) -> None:
+        self.seeking = True
+
+    def _preview_seek(self, _event=None) -> None:
         if self.current_index == -1:
             return
-        try:
-            pos = float(self.progress_var.get())
-            pygame.mixer.music.set_pos(pos)
-        except pygame.error:
-            pass
+        target = float(self.progress_var.get())
+        total = self._current_total()
+        self.time_label.config(text=f"{self._fmt(target)} / {self._fmt(total)}")
+
+    def _commit_seek(self, _event=None) -> None:
+        if self.current_index == -1:
+            self.seeking = False
+            return
+
+        target = max(0.0, float(self.progress_var.get()))
+        was_paused = self.is_paused
+        self._play_track(self.current_index, target)
+        if was_paused:
+            pygame.mixer.music.pause()
+            self.is_paused = True
+            self.paused_at = target
+            self.play_btn.config(text="▶")
+        self.seeking = False
 
     def _set_volume(self, value: str) -> None:
         pygame.mixer.music.set_volume(float(value) / 100)
@@ -316,12 +413,7 @@ class LeetMusicDesktop:
         if repeat not in {REPEAT_OFF, REPEAT_ONE, REPEAT_ALL}:
             repeat = REPEAT_OFF
         self.repeat_mode = repeat
-        if repeat == REPEAT_ONE:
-            self.repeat_btn.config(text="🔂")
-        elif repeat == REPEAT_ALL:
-            self.repeat_btn.config(text="🔁")
-        else:
-            self.repeat_btn.config(text="➡")
+        self.repeat_btn.config(text="🔂" if repeat == REPEAT_ONE else "🔁" if repeat == REPEAT_ALL else "➡")
 
     def _toggle_like_current(self) -> None:
         if self.current_index == -1:
@@ -345,33 +437,44 @@ class LeetMusicDesktop:
         current_name = self.tracks[self.current_index].name
         self.like_btn.config(text="♥" if current_name in liked else "♡")
 
+    def _current_total(self) -> float:
+        if self.current_index == -1:
+            return 0.0
+        return self.track_lengths.get(self.tracks[self.current_index].as_posix(), 0.0)
+
+    def _current_elapsed(self) -> float:
+        if self.current_index == -1:
+            return 0.0
+        if self.is_paused:
+            return self.paused_at
+        return max(0.0, time.time() - self.play_started_at)
+
     def _tick_progress(self) -> None:
         if self.current_index != -1:
-            elapsed = max(0.0, pygame.mixer.music.get_pos() / 1000)
-            self.progress_var.set(elapsed)
+            total = self._current_total()
+            elapsed = self._current_elapsed()
 
-            total_sec = 0
-            try:
-                total_sec = pygame.mixer.Sound(self.tracks[self.current_index].as_posix()).get_length()
-            except pygame.error:
-                total_sec = 0
-
-            self.progress.config(to=max(1, int(total_sec) if total_sec else 100))
-            self.time_label.config(text=f"{self._fmt(elapsed)} / {self._fmt(total_sec)}")
-
-            if not pygame.mixer.music.get_busy() and not self.is_paused:
+            if total > 0 and elapsed >= total - 0.15 and not self.is_paused:
                 if self.repeat_mode == REPEAT_ONE:
-                    self._play_track(self.current_index)
+                    self._play_track(self.current_index, 0.0)
                 elif self.current_index < len(self.tracks) - 1:
-                    self._play_track(self.current_index + 1)
+                    self._play_track(self.current_index + 1, 0.0)
                 elif self.repeat_mode == REPEAT_ALL and self.tracks:
-                    self._play_track(0)
+                    self._play_track(0, 0.0)
+                else:
+                    pygame.mixer.music.stop()
+                    self.play_btn.config(text="▶")
 
-        self.root.after(500, self._tick_progress)
+            if not self.seeking:
+                self.progress.config(to=max(1, int(total) if total else 100))
+                self.progress_var.set(min(elapsed, total if total else elapsed))
+            self.time_label.config(text=f"{self._fmt(elapsed)} / {self._fmt(total)}")
+
+        self.root.after(180, self._tick_progress)
 
     @staticmethod
     def _fmt(seconds: float) -> str:
-        sec = int(seconds)
+        sec = max(0, int(seconds))
         return f"{sec // 60}:{sec % 60:02d}"
 
     def _load_state(self) -> dict:
@@ -396,6 +499,10 @@ class LeetMusicDesktop:
 
 def main() -> None:
     root = tk.Tk()
+    root.withdraw()
+    splash = SplashScreen(root)
+    root.after(1850, root.deiconify)
+    root.after(1900, lambda: splash.destroy() if splash.winfo_exists() else None)
     LeetMusicDesktop(root)
     root.mainloop()
 
