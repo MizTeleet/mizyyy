@@ -121,6 +121,7 @@ class LeetMusicDesktop:
         hero.pack(fill="both", expand=True)
         self.hero = hero
         self.fog_layers = []
+        self.fog_level = 0.15
         random.seed(42)
         layer_presets = [
             {"y": 210, "thickness": 110, "speed": 0.08, "amp": 18, "tone": "#8d96a3", "stipple": "gray75"},
@@ -130,7 +131,22 @@ class LeetMusicDesktop:
             {"y": 470, "thickness": 200, "speed": 0.03, "amp": 38, "tone": "#d2d8e0", "stipple": "gray25"},
         ]
         for lp in layer_presets:
-            fog_id = hero.create_polygon([], smooth=True, splinesteps=18, fill=lp["tone"], outline="", stipple=lp["stipple"])
+            seed_layer = {
+                "base_y": lp["y"],
+                "thickness": lp["thickness"],
+                "speed": lp["speed"],
+                "amp": lp["amp"],
+                "phase": random.uniform(0, 6.28),
+            }
+            seed_points = self._fog_polygon_points(seed_layer, t=0.0, intensity=self.fog_level)
+            fog_id = hero.create_polygon(
+                *seed_points,
+                smooth=True,
+                splinesteps=18,
+                fill=lp["tone"],
+                outline="",
+                stipple=lp["stipple"],
+            )
             self.fog_layers.append(
                 {
                     "id": fog_id,
@@ -138,7 +154,7 @@ class LeetMusicDesktop:
                     "thickness": lp["thickness"],
                     "speed": lp["speed"],
                     "amp": lp["amp"],
-                    "phase": random.uniform(0, 6.28),
+                    "phase": seed_layer["phase"],
                     "tone": lp["tone"],
                 }
             )
@@ -146,7 +162,6 @@ class LeetMusicDesktop:
         self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#05070c", stipple="gray50", outline="")
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
-        self.fog_level = 0.15
 
         self.info_chip = tk.Label(
             top,
