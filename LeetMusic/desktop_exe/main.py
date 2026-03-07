@@ -121,15 +121,14 @@ class LeetMusicDesktop:
         hero.pack(fill="both", expand=True)
         self.hero = hero
         self.fog_layers = []
-        self.fog_level = 0.15
+        self.fog_level = 0.0
+        self.fog_visibility = 0.0
         random.seed(42)
         layer_presets = [
-            {"y": 185, "thickness": 95, "speed": 0.075, "amp": 11, "tone": "#2b313d"},
-            {"y": 235, "thickness": 110, "speed": 0.065, "amp": 14, "tone": "#343b49"},
-            {"y": 295, "thickness": 125, "speed": 0.056, "amp": 16, "tone": "#404858"},
-            {"y": 360, "thickness": 145, "speed": 0.047, "amp": 19, "tone": "#4d5668"},
-            {"y": 430, "thickness": 170, "speed": 0.038, "amp": 22, "tone": "#5a6478"},
-            {"y": 500, "thickness": 210, "speed": 0.03, "amp": 25, "tone": "#687286"},
+            {"y": 755, "thickness": 125, "speed": 0.08, "amp": 10, "tone": "#2f3643", "rise": 0.28},
+            {"y": 790, "thickness": 145, "speed": 0.069, "amp": 13, "tone": "#3b4352", "rise": 0.42},
+            {"y": 825, "thickness": 170, "speed": 0.058, "amp": 16, "tone": "#4a5363", "rise": 0.56},
+            {"y": 860, "thickness": 210, "speed": 0.047, "amp": 19, "tone": "#5a6477", "rise": 0.7},
         ]
         for lp in layer_presets:
             seed_layer = {
@@ -137,14 +136,15 @@ class LeetMusicDesktop:
                 "thickness": lp["thickness"],
                 "speed": lp["speed"],
                 "amp": lp["amp"],
+                "rise_offset": 0.0,
                 "phase": random.uniform(0, 6.28),
             }
             seed_points = self._fog_polygon_points(seed_layer, t=0.0, intensity=self.fog_level)
             fog_id = hero.create_polygon(
                 *seed_points,
                 smooth=True,
-                splinesteps=36,
-                fill=lp["tone"],
+                splinesteps=42,
+                fill="#0b0d13",
                 outline="",
             )
             self.fog_layers.append(
@@ -156,10 +156,12 @@ class LeetMusicDesktop:
                     "amp": lp["amp"],
                     "phase": seed_layer["phase"],
                     "tone": lp["tone"],
+                    "rise": lp["rise"],
+                    "rise_offset": 0.0,
                 }
             )
 
-        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#06080e", outline="")
+        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#05070d", outline="")
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
 
@@ -303,23 +305,24 @@ class LeetMusicDesktop:
     def _fog_polygon_points(self, layer: dict, t: float, intensity: float) -> list[float]:
         left = 80
         right = 1130
-        step = 46
+        step = 44
+        rise = layer.get("rise_offset", 0.0)
 
         top_points = []
         x = left
         while x <= right:
             wave = math.sin((x * 0.008) + t * layer["speed"] + layer["phase"]) * layer["amp"]
-            wave += math.cos((x * 0.0045) - t * layer["speed"] * 0.8 + layer["phase"] * 0.7) * (layer["amp"] * 0.45)
-            y = layer["base_y"] + wave * (0.45 + intensity * 0.75)
+            wave += math.cos((x * 0.0044) - t * layer["speed"] * 0.82 + layer["phase"] * 0.7) * (layer["amp"] * 0.5)
+            y = layer["base_y"] - rise + wave * (0.35 + intensity * 0.72)
             top_points.extend([x, y])
             x += step
 
         bottom_points = []
         x = right
         while x >= left:
-            wave = math.sin((x * 0.0072) + t * layer["speed"] + layer["phase"] * 1.2) * layer["amp"]
-            wave += math.cos((x * 0.0039) - t * layer["speed"] * 0.9 + layer["phase"] * 0.5) * (layer["amp"] * 0.35)
-            y = layer["base_y"] + layer["thickness"] + wave * (0.35 + intensity * 0.5)
+            wave = math.sin((x * 0.007) + t * layer["speed"] + layer["phase"] * 1.2) * layer["amp"]
+            wave += math.cos((x * 0.0038) - t * layer["speed"] * 0.9 + layer["phase"] * 0.48) * (layer["amp"] * 0.4)
+            y = layer["base_y"] + layer["thickness"] - rise + wave * (0.3 + intensity * 0.45)
             bottom_points.extend([x, y])
             x -= step
 
@@ -328,23 +331,27 @@ class LeetMusicDesktop:
     def _animate_hero(self, step: int) -> None:
         t = step / 30
         active = self._is_music_active()
-        target = 0.9 if active else 0.12
-        self.fog_level += (target - self.fog_level) * 0.035
+
+        target_visibility = 1.0 if active else 0.0
+        self.fog_visibility += (target_visibility - self.fog_visibility) * (0.028 if active else 0.02)
+
+        target_level = 0.92 if active else 0.02
+        self.fog_level += (target_level - self.fog_level) * 0.03
 
         for layer in self.fog_layers:
+            drift = math.sin((t * layer["speed"] * 1.8) + layer["phase"]) * 18
+            layer["rise_offset"] = (self.fog_visibility * (220 * layer["rise"])) + drift * self.fog_visibility
             pts = self._fog_polygon_points(layer, t, self.fog_level)
             self.hero.coords(layer["id"], *pts)
 
-            base_tone = self._mix_color("#1c2029", layer["tone"], 0.18 + self.fog_level * 0.58)
-            self.hero.itemconfig(
-                layer["id"],
-                fill=base_tone,
-            )
+            alpha = self.fog_visibility * (0.28 + layer["rise"] * 0.55)
+            smoke_tone = self._mix_color("#0b0d13", layer["tone"], alpha)
+            self.hero.itemconfig(layer["id"], fill=smoke_tone)
 
-        overlay = self._mix_color("#04060b", "#0d1320", self.fog_level * 0.28)
+        overlay = self._mix_color("#03050a", "#0b111c", self.fog_visibility * 0.24)
         self.hero.itemconfig(self.hero_overlay, fill=overlay)
 
-        text_color = self._mix_color("#bcb39a", "#fff8dc", self.fog_level)
+        text_color = self._mix_color("#a59f8f", "#fff8dc", 0.25 + self.fog_visibility * 0.75)
         self.hero.itemconfig(self.hero_vibe_text, fill=text_color)
 
         self.root.after(40, lambda: self._animate_hero(step + 1))
