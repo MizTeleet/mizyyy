@@ -124,11 +124,12 @@ class LeetMusicDesktop:
         self.fog_level = 0.15
         random.seed(42)
         layer_presets = [
-            {"y": 210, "thickness": 110, "speed": 0.08, "amp": 18, "tone": "#8d96a3", "stipple": "gray75"},
-            {"y": 265, "thickness": 130, "speed": 0.06, "amp": 24, "tone": "#a6afbc", "stipple": "gray50"},
-            {"y": 330, "thickness": 145, "speed": 0.05, "amp": 28, "tone": "#b7c0cd", "stipple": "gray50"},
-            {"y": 395, "thickness": 170, "speed": 0.04, "amp": 32, "tone": "#c6ced8", "stipple": "gray25"},
-            {"y": 470, "thickness": 200, "speed": 0.03, "amp": 38, "tone": "#d2d8e0", "stipple": "gray25"},
+            {"y": 185, "thickness": 95, "speed": 0.075, "amp": 11, "tone": "#2b313d"},
+            {"y": 235, "thickness": 110, "speed": 0.065, "amp": 14, "tone": "#343b49"},
+            {"y": 295, "thickness": 125, "speed": 0.056, "amp": 16, "tone": "#404858"},
+            {"y": 360, "thickness": 145, "speed": 0.047, "amp": 19, "tone": "#4d5668"},
+            {"y": 430, "thickness": 170, "speed": 0.038, "amp": 22, "tone": "#5a6478"},
+            {"y": 500, "thickness": 210, "speed": 0.03, "amp": 25, "tone": "#687286"},
         ]
         for lp in layer_presets:
             seed_layer = {
@@ -142,10 +143,9 @@ class LeetMusicDesktop:
             fog_id = hero.create_polygon(
                 *seed_points,
                 smooth=True,
-                splinesteps=18,
+                splinesteps=36,
                 fill=lp["tone"],
                 outline="",
-                stipple=lp["stipple"],
             )
             self.fog_layers.append(
                 {
@@ -159,7 +159,7 @@ class LeetMusicDesktop:
                 }
             )
 
-        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#05070c", stipple="gray50", outline="")
+        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#06080e", outline="")
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
 
@@ -303,7 +303,7 @@ class LeetMusicDesktop:
     def _fog_polygon_points(self, layer: dict, t: float, intensity: float) -> list[float]:
         left = 80
         right = 1130
-        step = 70
+        step = 46
 
         top_points = []
         x = left
@@ -335,14 +335,13 @@ class LeetMusicDesktop:
             pts = self._fog_polygon_points(layer, t, self.fog_level)
             self.hero.coords(layer["id"], *pts)
 
-            base_tone = self._mix_color("#232831", layer["tone"], 0.25 + self.fog_level * 0.75)
+            base_tone = self._mix_color("#1c2029", layer["tone"], 0.18 + self.fog_level * 0.58)
             self.hero.itemconfig(
                 layer["id"],
                 fill=base_tone,
-                stipple="gray25" if self.fog_level > 0.55 else "gray50",
             )
 
-        overlay = self._mix_color("#06080d", "#11161f", self.fog_level * 0.22)
+        overlay = self._mix_color("#04060b", "#0d1320", self.fog_level * 0.28)
         self.hero.itemconfig(self.hero_overlay, fill=overlay)
 
         text_color = self._mix_color("#bcb39a", "#fff8dc", self.fog_level)
