@@ -120,29 +120,26 @@ class LeetMusicDesktop:
         hero = tk.Canvas(top, bg="#0b0d13", highlightthickness=0)
         hero.pack(fill="both", expand=True)
         self.hero = hero
-        self.fog_particles = []
+        self.fog_layers = []
         random.seed(42)
-        for i in range(22):
-            x = 120 + (i % 8) * 130 + random.randint(-35, 35)
-            y = 120 + (i // 8) * 150 + random.randint(-30, 30)
-            r = random.randint(120, 220)
-            pid = hero.create_oval(
-                x - r,
-                y - r * 0.55,
-                x + r,
-                y + r * 0.55,
-                fill="#2b3039",
-                outline="",
-                stipple="gray50",
-            )
-            self.fog_particles.append(
+        layer_presets = [
+            {"y": 210, "thickness": 110, "speed": 0.08, "amp": 18, "tone": "#8d96a3", "stipple": "gray75"},
+            {"y": 265, "thickness": 130, "speed": 0.06, "amp": 24, "tone": "#a6afbc", "stipple": "gray50"},
+            {"y": 330, "thickness": 145, "speed": 0.05, "amp": 28, "tone": "#b7c0cd", "stipple": "gray50"},
+            {"y": 395, "thickness": 170, "speed": 0.04, "amp": 32, "tone": "#c6ced8", "stipple": "gray25"},
+            {"y": 470, "thickness": 200, "speed": 0.03, "amp": 38, "tone": "#d2d8e0", "stipple": "gray25"},
+        ]
+        for lp in layer_presets:
+            fog_id = hero.create_polygon([], smooth=True, splinesteps=18, fill=lp["tone"], outline="", stipple=lp["stipple"])
+            self.fog_layers.append(
                 {
-                    "id": pid,
-                    "x": float(x),
-                    "y": float(y),
-                    "r": float(r),
+                    "id": fog_id,
+                    "base_y": lp["y"],
+                    "thickness": lp["thickness"],
+                    "speed": lp["speed"],
+                    "amp": lp["amp"],
                     "phase": random.uniform(0, 6.28),
-                    "drift": random.uniform(0.3, 1.4),
+                    "tone": lp["tone"],
                 }
             )
 
@@ -288,31 +285,49 @@ class LeetMusicDesktop:
             return
         self._toggle_play_pause()
 
+    def _fog_polygon_points(self, layer: dict, t: float, intensity: float) -> list[float]:
+        left = 80
+        right = 1130
+        step = 70
+
+        top_points = []
+        x = left
+        while x <= right:
+            wave = math.sin((x * 0.008) + t * layer["speed"] + layer["phase"]) * layer["amp"]
+            wave += math.cos((x * 0.0045) - t * layer["speed"] * 0.8 + layer["phase"] * 0.7) * (layer["amp"] * 0.45)
+            y = layer["base_y"] + wave * (0.45 + intensity * 0.75)
+            top_points.extend([x, y])
+            x += step
+
+        bottom_points = []
+        x = right
+        while x >= left:
+            wave = math.sin((x * 0.0072) + t * layer["speed"] + layer["phase"] * 1.2) * layer["amp"]
+            wave += math.cos((x * 0.0039) - t * layer["speed"] * 0.9 + layer["phase"] * 0.5) * (layer["amp"] * 0.35)
+            y = layer["base_y"] + layer["thickness"] + wave * (0.35 + intensity * 0.5)
+            bottom_points.extend([x, y])
+            x -= step
+
+        return top_points + bottom_points
+
     def _animate_hero(self, step: int) -> None:
         t = step / 30
         active = self._is_music_active()
-        target = 0.86 if active else 0.16
-        self.fog_level += (target - self.fog_level) * 0.045
+        target = 0.9 if active else 0.12
+        self.fog_level += (target - self.fog_level) * 0.035
 
-        speed = 0.95 if active else 0.18
-        amp = 1.9 if active else 0.5
-        for particle in self.fog_particles:
-            phase = t * speed * particle["drift"] + particle["phase"]
-            dx = math.sin(phase) * amp * 0.9
-            dy = math.cos(phase * 0.8) * amp * 0.6
-            self.hero.move(particle["id"], dx, dy)
+        for layer in self.fog_layers:
+            pts = self._fog_polygon_points(layer, t, self.fog_level)
+            self.hero.coords(layer["id"], *pts)
 
-            cold = self._mix_color("#1b1f27", "#e2e8f0", self.fog_level)
-            warm = self._mix_color("#1d2028", "#ffe8b0", self.fog_level * 0.65)
-            mix_ratio = (math.sin(phase * 0.7) + 1) / 2
-            tone = self._mix_color(cold, warm, mix_ratio * 0.35)
+            base_tone = self._mix_color("#232831", layer["tone"], 0.25 + self.fog_level * 0.75)
             self.hero.itemconfig(
-                particle["id"],
-                fill=tone,
+                layer["id"],
+                fill=base_tone,
                 stipple="gray25" if self.fog_level > 0.55 else "gray50",
             )
 
-        overlay = self._mix_color("#090c12", "#14171d", self.fog_level * 0.2)
+        overlay = self._mix_color("#06080d", "#11161f", self.fog_level * 0.22)
         self.hero.itemconfig(self.hero_overlay, fill=overlay)
 
         text_color = self._mix_color("#bcb39a", "#fff8dc", self.fog_level)
