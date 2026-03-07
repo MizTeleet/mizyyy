@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+import random
 import time
 from pathlib import Path
 import tkinter as tk
@@ -119,12 +120,33 @@ class LeetMusicDesktop:
         hero = tk.Canvas(top, bg="#0b0d13", highlightthickness=0)
         hero.pack(fill="both", expand=True)
         self.hero = hero
-        self.hero_blobs = [
-            hero.create_oval(100, 40, 900, 650, fill="#776600", outline=""),
-            hero.create_oval(280, 120, 1100, 620, fill="#5a2f00", outline=""),
-            hero.create_oval(260, 200, 900, 710, fill="#44224f", outline=""),
-        ]
-        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#000", stipple="gray50", outline="")
+        self.fog_particles = []
+        random.seed(42)
+        for i in range(22):
+            x = 120 + (i % 8) * 130 + random.randint(-35, 35)
+            y = 120 + (i // 8) * 150 + random.randint(-30, 30)
+            r = random.randint(120, 220)
+            pid = hero.create_oval(
+                x - r,
+                y - r * 0.55,
+                x + r,
+                y + r * 0.55,
+                fill="#2b3039",
+                outline="",
+                stipple="gray50",
+            )
+            self.fog_particles.append(
+                {
+                    "id": pid,
+                    "x": float(x),
+                    "y": float(y),
+                    "r": float(r),
+                    "phase": random.uniform(0, 6.28),
+                    "drift": random.uniform(0.3, 1.4),
+                }
+            )
+
+        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#05070c", stipple="gray50", outline="")
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
         self.fog_level = 0.15
@@ -269,21 +291,29 @@ class LeetMusicDesktop:
     def _animate_hero(self, step: int) -> None:
         t = step / 30
         active = self._is_music_active()
-        target = 1.0 if active else 0.18
-        self.fog_level += (target - self.fog_level) * 0.06
+        target = 0.86 if active else 0.16
+        self.fog_level += (target - self.fog_level) * 0.045
 
-        speed = 1.45 if active else 0.25
-        offsets = [
-            (math.sin(t * speed) * (1.1 + self.fog_level), math.cos(t * 1.3 * speed) * (1.0 + self.fog_level)),
-            (math.cos(t * 0.9 * speed) * (1.3 + self.fog_level), math.sin(t * speed) * (0.8 + self.fog_level)),
-            (math.sin(t * 1.2 * speed) * (0.9 + self.fog_level), math.cos(t * 0.8 * speed) * (1.2 + self.fog_level)),
-        ]
-        for blob, (dx, dy) in zip(self.hero_blobs, offsets):
-            self.hero.move(blob, dx, dy)
+        speed = 0.95 if active else 0.18
+        amp = 1.9 if active else 0.5
+        for particle in self.fog_particles:
+            phase = t * speed * particle["drift"] + particle["phase"]
+            dx = math.sin(phase) * amp * 0.9
+            dy = math.cos(phase * 0.8) * amp * 0.6
+            self.hero.move(particle["id"], dx, dy)
 
-        self.hero.itemconfig(self.hero_blobs[0], fill=self._mix_color("#5a4d00", "#f4d125", self.fog_level))
-        self.hero.itemconfig(self.hero_blobs[1], fill=self._mix_color("#4a2500", "#ff7a00", self.fog_level))
-        self.hero.itemconfig(self.hero_blobs[2], fill=self._mix_color("#3a2148", "#ff4aa2", self.fog_level))
+            cold = self._mix_color("#1b1f27", "#e2e8f0", self.fog_level)
+            warm = self._mix_color("#1d2028", "#ffe8b0", self.fog_level * 0.65)
+            mix_ratio = (math.sin(phase * 0.7) + 1) / 2
+            tone = self._mix_color(cold, warm, mix_ratio * 0.35)
+            self.hero.itemconfig(
+                particle["id"],
+                fill=tone,
+                stipple="gray25" if self.fog_level > 0.55 else "gray50",
+            )
+
+        overlay = self._mix_color("#090c12", "#14171d", self.fog_level * 0.2)
+        self.hero.itemconfig(self.hero_overlay, fill=overlay)
 
         text_color = self._mix_color("#bcb39a", "#fff8dc", self.fog_level)
         self.hero.itemconfig(self.hero_vibe_text, fill=text_color)
