@@ -375,14 +375,24 @@ async function searchOnlineTracks(query) {
 
     state.searchResults = Array.isArray(results)
       ? results
-          .map((item) => ({
-            trackName: item.title,
-            artistName: item.author,
-            duration: item.duration || '',
-            videoUrl: item.url || item.videoUrl,
-            streamUrl: buildYoutubeAudioUrlFromVideo(item.url || item.videoUrl || ''),
-          }))
-          .filter((item) => item.trackName && item.artistName && item.streamUrl)
+          .filter((item) => item && typeof item === 'object')
+          .map((item) => {
+            const rawUrl =
+              typeof item.url === 'string'
+                ? item.url
+                : typeof item.videoUrl === 'string'
+                ? item.videoUrl
+                : '';
+
+            return {
+              trackName: typeof item.title === 'string' ? item.title : '',
+              artistName: typeof item.author === 'string' ? item.author : 'Unknown',
+              duration: typeof item.duration === 'string' ? item.duration : '',
+              videoUrl: rawUrl,
+              streamUrl: rawUrl ? buildYoutubeAudioUrlFromVideo(rawUrl) : '',
+            };
+          })
+          .filter((item) => item.trackName && item.videoUrl && item.streamUrl)
       : [];
 
     renderSearchResults();

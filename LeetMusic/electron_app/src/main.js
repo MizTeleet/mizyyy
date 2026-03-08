@@ -158,17 +158,18 @@ async function downloadOnlineTrack(payload) {
 
 
 async function searchYouTube(query) {
-  const results = await ytsr(query, { limit: 10 });
+  const results = await ytsr(query, { limit: 15 });
 
-  return (results?.items || [])
+  const videos = (results?.items || [])
     .filter((item) => item && item.type === 'video' && item.url)
     .map((video) => ({
       title: video.title || '',
       author: video.author?.name || 'Unknown',
       url: video.url,
       duration: video.duration || '',
-    }))
-    .filter((item) => item.title && item.url);
+    }));
+
+  return videos;
 }
 
 function createWindow() {
