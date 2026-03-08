@@ -182,6 +182,12 @@ class LeetMusicDesktop:
             self.fog_wisps.append({"id": wisp_id, **wp})
 
         self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#03050a", outline="")
+        hero.tag_lower(self.hero_overlay)
+        for layer in self.fog_layers:
+            hero.tag_raise(layer["id"])
+        for wisp in self.fog_wisps:
+            hero.tag_raise(wisp["id"])
+
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
 
@@ -388,7 +394,7 @@ class LeetMusicDesktop:
             wisp_color = self._mix_color("#0b0d13", wisp["tone"], self.fog_visibility * 0.62)
             self.hero.itemconfig(wisp["id"], fill=wisp_color)
 
-        overlay = self._mix_color("#010308", "#090f1a", self.fog_visibility * 0.06)
+        overlay = self._mix_color("#05070d", "#0a111c", self.fog_visibility * 0.2)
         self.hero.itemconfig(self.hero_overlay, fill=overlay)
 
         text_color = self._mix_color("#9a9385", "#fff8dc", 0.3 + self.fog_visibility * 0.7)
