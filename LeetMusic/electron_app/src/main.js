@@ -161,11 +161,11 @@ async function searchYouTube(query) {
   const results = await ytsr(query, { limit: 15 });
 
   const videos = (results?.items || [])
-    .filter((item) => item && item.type === 'video' && item.url)
+    .filter((item) => item && item.type === 'video' && typeof item.url === 'string' && item.url)
     .map((video) => ({
       title: video.title || '',
       author: video.author?.name || 'Unknown',
-      url: video.url,
+      url: String(video.url),
       duration: video.duration || '',
     }));
 

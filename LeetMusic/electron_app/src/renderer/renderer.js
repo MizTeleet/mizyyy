@@ -377,12 +377,7 @@ async function searchOnlineTracks(query) {
       ? results
           .filter((item) => item && typeof item === 'object')
           .map((item) => {
-            const rawUrl =
-              typeof item.url === 'string'
-                ? item.url
-                : typeof item.videoUrl === 'string'
-                ? item.videoUrl
-                : '';
+            const rawUrl = typeof item.url === 'string' ? item.url : '';
 
             return {
               trackName: typeof item.title === 'string' ? item.title : '',
