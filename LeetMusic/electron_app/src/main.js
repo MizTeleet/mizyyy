@@ -159,15 +159,22 @@ async function downloadOnlineTrack(payload) {
 
 async function searchYouTube(query) {
   const results = await ytsr(query, { limit: 15 });
+  const rawItems = Array.isArray(results?.items) ? results.items : [];
 
-  const videos = (results?.items || [])
-    .filter((item) => item && item.type === 'video' && typeof item.url === 'string' && item.url)
-    .map((video) => ({
-      title: video.title || '',
-      author: video.author?.name || 'Unknown',
-      url: String(video.url),
-      duration: video.duration || '',
-    }));
+  console.log('ytsr results:', rawItems);
+
+  const videos = [];
+  for (const item of rawItems) {
+    if (!item || item.type !== 'video') continue;
+    if (typeof item.url !== 'string' || !item.url) continue;
+
+    videos.push({
+      title: typeof item.title === 'string' ? item.title : '',
+      author: typeof item.author?.name === 'string' && item.author.name ? item.author.name : 'Unknown',
+      url: item.url,
+      duration: typeof item.duration === 'string' ? item.duration : '',
+    });
+  }
 
   return videos;
 }
@@ -194,7 +201,14 @@ ipcMain.handle('tracks:meta-save', async (_event, trackId, patch) => saveTrackMe
 ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fromWebContents(event.sender)));
 ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
 ipcMain.handle('tracks:download-online', async (_event, payload) => downloadOnlineTrack(payload));
-ipcMain.handle('tracks:search-online', async (_event, query) => searchYouTube(query));
+ipcMain.handle('tracks:search-online', async (_event, query) => {
+  const safeQuery = typeof query === 'string' ? query.trim() : '';
+  if (!safeQuery) return [];
+
+  const videos = await searchYouTube(safeQuery);
+  console.log('tracks:search-online cleaned videos:', videos);
+  return videos;
+});
 
 app.whenReady().then(async () => {
   await ensureMusicDir();
