@@ -5,15 +5,30 @@ const { pathToFileURL } = require('url');
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
 
-const appRoot = app.getAppPath();
-const musicDir = path.join(appRoot, 'Music');
+function getMusicDir() {
+  const systemMusicDir = app.getPath('music');
+  return path.join(systemMusicDir, 'LeetMusic');
+}
 
 async function ensureMusicDir() {
-  await fs.mkdir(musicDir, { recursive: true });
+  const musicDir = getMusicDir();
+  try {
+    const stat = await fs.stat(musicDir);
+    if (!stat.isDirectory()) {
+      throw new Error(`Music path exists but is not a directory: ${musicDir}`);
+    }
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      await fs.mkdir(musicDir, { recursive: true });
+    } else {
+      throw error;
+    }
+  }
+  return musicDir;
 }
 
 async function listTracks() {
-  await ensureMusicDir();
+  const musicDir = await ensureMusicDir();
   const entries = await fs.readdir(musicDir, { withFileTypes: true });
   return entries
     .filter((entry) => entry.isFile())
@@ -29,7 +44,7 @@ async function listTracks() {
 }
 
 async function importTracks(win) {
-  await ensureMusicDir();
+  const musicDir = await ensureMusicDir();
   const result = await dialog.showOpenDialog(win, {
     title: 'Импорт музыки',
     properties: ['openFile', 'multiSelections'],
@@ -69,6 +84,7 @@ function createWindow() {
 
 ipcMain.handle('tracks:list', async () => listTracks());
 ipcMain.handle('tracks:import', async (event) => importTracks(BrowserWindow.fromWebContents(event.sender)));
+ipcMain.handle('tracks:music-dir', async () => ensureMusicDir());
 
 app.whenReady().then(async () => {
   await ensureMusicDir();

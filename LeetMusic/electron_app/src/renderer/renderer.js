@@ -15,6 +15,7 @@ const fogOverlay = document.getElementById('fogOverlay');
 let tracks = [];
 let currentIndex = -1;
 let seeking = false;
+let musicDirHint = "";
 
 function fmt(sec) {
   if (!Number.isFinite(sec)) return '0:00';
@@ -25,7 +26,7 @@ function fmt(sec) {
 
 function renderTracks() {
   trackListEl.innerHTML = '';
-  statusEl.textContent = `Треков: ${tracks.length}`;
+  statusEl.textContent = musicDirHint ? `Треков: ${tracks.length} • ${musicDirHint}` : `Треков: ${tracks.length}`;
   if (!tracks.length) {
     const li = document.createElement('li');
     li.textContent = 'Нет треков в папке Music';
@@ -122,5 +123,7 @@ audio.addEventListener('ended', () => {
 });
 audio.addEventListener('play', () => setFogPlaying(true));
 audio.addEventListener('pause', () => setFogPlaying(false));
+
+api.getMusicDir().then((dir) => { musicDirHint = dir; renderTracks(); }).catch(() => {});
 
 refreshTracks();

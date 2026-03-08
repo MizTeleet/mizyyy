@@ -42,9 +42,11 @@ npm run build
 ```
 
 ## Где хранить музыку
-Скопируйте треки в:
+Теперь музыка хранится в системной папке Music пользователя:
 
-- `LeetMusic/electron_app/Music/`
+- `Музыка/LeetMusic` (Windows)
+
+Пример: `C:\Users\<user>\Music\LeetMusic`.
 
 Поддерживаемые форматы: `mp3`, `wav`, `ogg`, `flac`, `m4a`.
 
