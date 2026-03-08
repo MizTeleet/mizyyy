@@ -11,3 +11,7 @@
 Открыть плеер одним кликом на Windows:
 
 - `LeetMusic/electron_app/open_LeetMusic.bat`
+
+Uninstaller (очистка данных):
+
+- `LeetMusic/electron_app/uninstall_LeetMusic.bat`

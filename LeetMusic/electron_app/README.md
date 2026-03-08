@@ -3,12 +3,14 @@
 Современная desktop-версия плеера на HTML/CSS/JavaScript (Electron).
 
 ## Возможности
-- список треков из папки `Music/`
-- импорт музыки через диалог
-- выбор трека
+- список треков без дублирования названий
+- импорт музыки через иконку 🎵 в левом меню
+- вкладки навигации: главная / плеер / избранное
 - play / pause / prev / next
 - карточка текущего трека
-- fog overlay при воспроизведении
+- редактирование избранных: название, описание, обложка, экспорт на ПК
+- эквалайзер в отдельном прозрачном окне (bass/mid/treble/vocal + presets)
+- fog overlay + glassmorphism UI
 
 ## Открыть плеер одним кликом (Windows)
 Запусти файл:
@@ -53,3 +55,10 @@ npm run build
 После сборки приложение будет тут:
 
 - `LeetMusic/electron_app/dist/LeetMusic.exe`
+
+## Удаление (uninstaller)
+Запусти:
+
+- `LeetMusic/electron_app/uninstall_LeetMusic.bat`
+
+Скрипт удаляет папки данных LeetMusic из `%APPDATA%` и `%USERPROFILE%\Music\LeetMusic`.

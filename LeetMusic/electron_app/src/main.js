@@ -10,6 +10,25 @@ function getMusicDir() {
   return path.join(systemMusicDir, 'LeetMusic');
 }
 
+function getMetaFile() {
+  return path.join(app.getPath('userData'), 'track_meta.json');
+}
+
+async function readMeta() {
+  const metaFile = getMetaFile();
+  try {
+    return JSON.parse(await fs.readFile(metaFile, 'utf8'));
+  } catch {
+    return {};
+  }
+}
+
+async function writeMeta(meta) {
+  const metaFile = getMetaFile();
+  await fs.mkdir(path.dirname(metaFile), { recursive: true });
+  await fs.writeFile(metaFile, JSON.stringify(meta, null, 2), 'utf8');
+}
+
 async function ensureMusicDir() {
   const musicDir = getMusicDir();
   try {
@@ -30,6 +49,8 @@ async function ensureMusicDir() {
 async function listTracks() {
   const musicDir = await ensureMusicDir();
   const entries = await fs.readdir(musicDir, { withFileTypes: true });
+  const meta = await readMeta();
+
   return entries
     .filter((entry) => entry.isFile())
     .map((entry) => entry.name)
@@ -40,6 +61,10 @@ async function listTracks() {
       name,
       title: path.parse(name).name,
       fileUrl: pathToFileURL(path.join(musicDir, name)).href,
+      favorite: Boolean(meta[name]?.favorite),
+      customTitle: meta[name]?.customTitle || '',
+      description: meta[name]?.description || '',
+      coverPath: meta[name]?.coverPath || '',
     }));
 }
 
@@ -67,6 +92,37 @@ async function importTracks(win) {
   return { copied, tracks: await listTracks() };
 }
 
+async function saveTrackMeta(trackId, patch) {
+  const meta = await readMeta();
+  meta[trackId] = {
+    ...meta[trackId],
+    ...patch,
+  };
+  await writeMeta(meta);
+  return meta[trackId];
+}
+
+async function pickCover(win) {
+  const result = await dialog.showOpenDialog(win, {
+    title: 'Выберите обложку',
+    properties: ['openFile'],
+    filters: [{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp'] }],
+  });
+  if (result.canceled || !result.filePaths.length) return '';
+  return result.filePaths[0];
+}
+
+async function exportTrackCard(win, payload) {
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Сохранить данные трека',
+    defaultPath: `${payload.title || 'track'}.json`,
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  });
+  if (result.canceled || !result.filePath) return false;
+  await fs.writeFile(result.filePath, JSON.stringify(payload, null, 2), 'utf8');
+  return true;
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -85,6 +141,9 @@ function createWindow() {
 ipcMain.handle('tracks:list', async () => listTracks());
 ipcMain.handle('tracks:import', async (event) => importTracks(BrowserWindow.fromWebContents(event.sender)));
 ipcMain.handle('tracks:music-dir', async () => ensureMusicDir());
+ipcMain.handle('tracks:meta-save', async (_event, trackId, patch) => saveTrackMeta(trackId, patch));
+ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fromWebContents(event.sender)));
+ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
 
 app.whenReady().then(async () => {
   await ensureMusicDir();
