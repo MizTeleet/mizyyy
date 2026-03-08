@@ -7,3 +7,7 @@
 Быстрый запуск сборки `.exe` для Windows:
 
 - `LeetMusic/electron_app/build_windows_exe.bat`
+
+Открыть плеер одним кликом на Windows:
+
+- `LeetMusic/electron_app/open_LeetMusic.bat`
