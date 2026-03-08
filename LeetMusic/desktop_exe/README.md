@@ -22,3 +22,10 @@ python build_exe.py
 - `desktop_exe/Music/`
 
 Поддерживаемые форматы: `mp3`, `wav`, `ogg`, `flac`, `m4a`.
+
+## Fog overlay (опционально)
+Чтобы использовать анимированный туман как overlay, положите GIF в:
+
+- `desktop_exe/assets/fog.gif`
+
+Когда трек играет, GIF-слой появляется и анимируется; при паузе — плавно затухает.

@@ -123,6 +123,10 @@ class LeetMusicDesktop:
         self.fog_layers = []
         self.fog_level = 0.0
         self.fog_visibility = 0.0
+        self.fog_gif_frames: list[tk.PhotoImage] = []
+        self.fog_gif_items: list[int] = []
+        self.fog_gif_index = 0
+        self.fog_gif_mask = None
         random.seed(42)
         layer_presets = [
             {"y": 500, "thickness": 140, "speed": 0.085, "amp": 12, "tone": "#5a6478", "rise": 0.62},
@@ -181,12 +185,32 @@ class LeetMusicDesktop:
             )
             self.fog_wisps.append({"id": wisp_id, **wp})
 
+        fog_gif = self.base_dir / "assets" / "fog.gif"
+        if fog_gif.exists():
+            frame_index = 0
+            while True:
+                try:
+                    frame = tk.PhotoImage(file=fog_gif.as_posix(), format=f"gif -index {frame_index}")
+                except tk.TclError:
+                    break
+                self.fog_gif_frames.append(frame)
+                frame_index += 1
+            if self.fog_gif_frames:
+                for x in (220, 620, 1020):
+                    item = hero.create_image(x, 710, image=self.fog_gif_frames[0], anchor="s", state="hidden")
+                    self.fog_gif_items.append(item)
+                self.fog_gif_mask = hero.create_rectangle(0, 430, 2000, 740, fill="#05070d", outline="", state="hidden", stipple="gray75")
+
         self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#03050a", outline="")
         hero.tag_lower(self.hero_overlay)
         for layer in self.fog_layers:
             hero.tag_raise(layer["id"])
         for wisp in self.fog_wisps:
             hero.tag_raise(wisp["id"])
+        for item in self.fog_gif_items:
+            hero.tag_raise(item)
+        if self.fog_gif_mask is not None:
+            hero.tag_raise(self.fog_gif_mask)
 
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
@@ -378,20 +402,46 @@ class LeetMusicDesktop:
         target_level = 1.0 if active else 0.0
         self.fog_level += (target_level - self.fog_level) * 0.05
 
+        if self.fog_gif_frames and self.fog_gif_items:
+            if active or self.fog_visibility > 0.03:
+                if active:
+                    self.fog_gif_index = (self.fog_gif_index + 1) % len(self.fog_gif_frames)
+                frame = self.fog_gif_frames[self.fog_gif_index]
+                for item in self.fog_gif_items:
+                    self.hero.itemconfig(item, image=frame, state="normal")
+                if self.fog_gif_mask is not None:
+                    if self.fog_visibility > 0.7:
+                        mask_stipple = "gray12"
+                    elif self.fog_visibility > 0.4:
+                        mask_stipple = "gray25"
+                    elif self.fog_visibility > 0.2:
+                        mask_stipple = "gray50"
+                    else:
+                        mask_stipple = "gray75"
+                    self.hero.itemconfig(self.fog_gif_mask, state="normal", stipple=mask_stipple)
+            else:
+                for item in self.fog_gif_items:
+                    self.hero.itemconfig(item, state="hidden")
+                if self.fog_gif_mask is not None:
+                    self.hero.itemconfig(self.fog_gif_mask, state="hidden")
+
+        procedural_scale = 0.25 if self.fog_gif_frames else 1.0
+
         for layer in self.fog_layers:
             drift = math.sin((t * layer["speed"] * 1.9) + layer["phase"]) * 24
             layer["rise_offset"] = (self.fog_visibility * (270 * layer["rise"])) + drift * self.fog_visibility
             pts = self._fog_polygon_points(layer, t, self.fog_level)
             self.hero.coords(layer["id"], *pts)
 
-            alpha = self.fog_visibility * (0.58 + layer["rise"] * 0.34)
+            alpha = self.fog_visibility * (0.58 + layer["rise"] * 0.34) * procedural_scale
             smoke_tone = self._mix_color("#080a10", layer["tone"], alpha)
             self.hero.itemconfig(layer["id"], fill=smoke_tone)
 
         for wisp in self.fog_wisps:
             wisp_points = self._wisp_line_points(wisp, t, self.fog_visibility)
             self.hero.coords(wisp["id"], *wisp_points)
-            wisp_color = self._mix_color("#0b0d13", wisp["tone"], self.fog_visibility * 0.62)
+            wisp_alpha = self.fog_visibility * 0.62 * procedural_scale
+            wisp_color = self._mix_color("#0b0d13", wisp["tone"], wisp_alpha)
             self.hero.itemconfig(wisp["id"], fill=wisp_color)
 
         overlay = self._mix_color("#05070d", "#0a111c", self.fog_visibility * 0.2)
