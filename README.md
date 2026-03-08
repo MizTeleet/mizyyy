@@ -3,3 +3,7 @@
 Используйте новую desktop-версию плеера на Electron:
 
 - `LeetMusic/electron_app/README.md`
+
+Быстрый запуск сборки `.exe` для Windows:
+
+- `LeetMusic/electron_app/build_windows_exe.bat`

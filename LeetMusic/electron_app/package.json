@@ -5,7 +5,8 @@
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win portable"
+    "build": "npm run build:win",
+    "build:win": "electron-builder --win portable --x64"
   },
   "build": {
     "appId": "com.leetmusic.desktop",
@@ -17,7 +18,13 @@
       "src/**/*",
       "Music/**/*",
       "package.json"
-    ]
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "artifactName": "LeetMusic.exe"
+    }
   },
   "devDependencies": {
     "electron": "^31.0.2",

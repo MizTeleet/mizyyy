@@ -17,7 +17,15 @@ npm install
 npm start
 ```
 
-## Сборка `.exe`
+## Сборка `.exe` (Windows)
+### Вариант 1 (проще)
+Запусти файл:
+
+- `LeetMusic/electron_app/build_windows_exe.bat`
+
+Он сам установит зависимости и соберет `.exe`.
+
+### Вариант 2 (вручную)
 ```bash
 cd LeetMusic/electron_app
 npm install
@@ -30,3 +38,7 @@ npm run build
 - `LeetMusic/electron_app/Music/`
 
 Поддерживаемые форматы: `mp3`, `wav`, `ogg`, `flac`, `m4a`.
+
+После сборки приложение будет тут:
+
+- `LeetMusic/electron_app/dist/LeetMusic.exe`
