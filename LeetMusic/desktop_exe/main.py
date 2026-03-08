@@ -161,6 +161,26 @@ class LeetMusicDesktop:
                 }
             )
 
+        self.fog_wisps = []
+        wisp_presets = [
+            {"x": 420, "width": 22, "tone": "#97a3b8", "speed": 0.15, "rise": 0.95},
+            {"x": 510, "width": 18, "tone": "#a9b5c8", "speed": 0.13, "rise": 1.05},
+            {"x": 610, "width": 26, "tone": "#8f9cb2", "speed": 0.11, "rise": 0.88},
+            {"x": 705, "width": 16, "tone": "#b1bdd0", "speed": 0.12, "rise": 1.12},
+        ]
+        for wp in wisp_presets:
+            seed_points = self._wisp_line_points(wp, t=0.0, visibility=0.0)
+            wisp_id = hero.create_line(
+                *seed_points,
+                smooth=True,
+                splinesteps=26,
+                width=wp["width"],
+                fill="#0b0d13",
+                capstyle=tk.ROUND,
+                joinstyle=tk.ROUND,
+            )
+            self.fog_wisps.append({"id": wisp_id, **wp})
+
         self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#03050a", outline="")
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
@@ -328,6 +348,20 @@ class LeetMusicDesktop:
 
         return top_points + bottom_points
 
+    def _wisp_line_points(self, wisp: dict, t: float, visibility: float) -> list[float]:
+        points = []
+        segments = 10
+        start_y = 760 - (visibility * 40)
+        max_rise = 340 * wisp["rise"] * visibility
+        for i in range(segments + 1):
+            p = i / segments
+            y = start_y - (max_rise * p)
+            sway = math.sin((t * wisp["speed"] * 9) + p * 6.2 + wisp["x"] * 0.01) * (14 + visibility * 22)
+            twist = math.cos((t * wisp["speed"] * 7.5) + p * 3.8) * (6 + visibility * 12)
+            x = wisp["x"] + sway + twist
+            points.extend([x, y])
+        return points
+
     def _animate_hero(self, step: int) -> None:
         t = step / 30
         active = self._is_music_active()
@@ -348,10 +382,16 @@ class LeetMusicDesktop:
             smoke_tone = self._mix_color("#080a10", layer["tone"], alpha)
             self.hero.itemconfig(layer["id"], fill=smoke_tone)
 
-        overlay = self._mix_color("#020409", "#0a101b", self.fog_visibility * 0.1)
+        for wisp in self.fog_wisps:
+            wisp_points = self._wisp_line_points(wisp, t, self.fog_visibility)
+            self.hero.coords(wisp["id"], *wisp_points)
+            wisp_color = self._mix_color("#0b0d13", wisp["tone"], self.fog_visibility * 0.62)
+            self.hero.itemconfig(wisp["id"], fill=wisp_color)
+
+        overlay = self._mix_color("#010308", "#090f1a", self.fog_visibility * 0.06)
         self.hero.itemconfig(self.hero_overlay, fill=overlay)
 
-        text_color = self._mix_color("#a59f8f", "#fff8dc", 0.25 + self.fog_visibility * 0.75)
+        text_color = self._mix_color("#9a9385", "#fff8dc", 0.3 + self.fog_visibility * 0.7)
         self.hero.itemconfig(self.hero_vibe_text, fill=text_color)
 
         self.root.after(40, lambda: self._animate_hero(step + 1))
