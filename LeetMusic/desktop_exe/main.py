@@ -125,10 +125,10 @@ class LeetMusicDesktop:
         self.fog_visibility = 0.0
         random.seed(42)
         layer_presets = [
-            {"y": 700, "thickness": 150, "speed": 0.082, "amp": 11, "tone": "#4a5466", "rise": 0.55},
-            {"y": 740, "thickness": 180, "speed": 0.071, "amp": 14, "tone": "#5b6578", "rise": 0.72},
-            {"y": 790, "thickness": 215, "speed": 0.059, "amp": 17, "tone": "#6b7588", "rise": 0.9},
-            {"y": 845, "thickness": 255, "speed": 0.049, "amp": 20, "tone": "#7d8798", "rise": 1.08},
+            {"y": 500, "thickness": 140, "speed": 0.085, "amp": 12, "tone": "#5a6478", "rise": 0.62},
+            {"y": 545, "thickness": 170, "speed": 0.074, "amp": 15, "tone": "#6a7589", "rise": 0.78},
+            {"y": 590, "thickness": 205, "speed": 0.062, "amp": 18, "tone": "#7b879b", "rise": 0.94},
+            {"y": 640, "thickness": 245, "speed": 0.051, "amp": 21, "tone": "#8b97ab", "rise": 1.1},
         ]
         for lp in layer_presets:
             seed_layer = {
@@ -161,7 +161,7 @@ class LeetMusicDesktop:
                 }
             )
 
-        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#04060b", outline="")
+        self.hero_overlay = hero.create_rectangle(0, 0, 2000, 2000, fill="#03050a", outline="")
         self.hero_vibe_text = hero.create_text(470, 290, text="▶ Твой вайб", font=("Segoe UI", 42, "bold"), fill="#fff7d5")
         hero.tag_bind(self.hero_vibe_text, "<Button-1>", self._play_from_vibe)
 
@@ -333,22 +333,22 @@ class LeetMusicDesktop:
         active = self._is_music_active()
 
         target_visibility = 1.0 if active else 0.0
-        self.fog_visibility += (target_visibility - self.fog_visibility) * (0.04 if active else 0.024)
+        self.fog_visibility += (target_visibility - self.fog_visibility) * (0.052 if active else 0.02)
 
-        target_level = 0.96 if active else 0.01
-        self.fog_level += (target_level - self.fog_level) * 0.04
+        target_level = 1.0 if active else 0.0
+        self.fog_level += (target_level - self.fog_level) * 0.05
 
         for layer in self.fog_layers:
-            drift = math.sin((t * layer["speed"] * 1.8) + layer["phase"]) * 22
-            layer["rise_offset"] = (self.fog_visibility * (360 * layer["rise"])) + drift * self.fog_visibility
+            drift = math.sin((t * layer["speed"] * 1.9) + layer["phase"]) * 24
+            layer["rise_offset"] = (self.fog_visibility * (270 * layer["rise"])) + drift * self.fog_visibility
             pts = self._fog_polygon_points(layer, t, self.fog_level)
             self.hero.coords(layer["id"], *pts)
 
-            alpha = self.fog_visibility * (0.44 + layer["rise"] * 0.42)
-            smoke_tone = self._mix_color("#090b11", layer["tone"], alpha)
+            alpha = self.fog_visibility * (0.58 + layer["rise"] * 0.34)
+            smoke_tone = self._mix_color("#080a10", layer["tone"], alpha)
             self.hero.itemconfig(layer["id"], fill=smoke_tone)
 
-        overlay = self._mix_color("#020409", "#0a101b", self.fog_visibility * 0.15)
+        overlay = self._mix_color("#020409", "#0a101b", self.fog_visibility * 0.1)
         self.hero.itemconfig(self.hero_overlay, fill=overlay)
 
         text_color = self._mix_color("#a59f8f", "#fff8dc", 0.25 + self.fog_visibility * 0.75)
