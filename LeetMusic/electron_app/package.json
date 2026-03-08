@@ -1,0 +1,17 @@
+{
+  "name": "leetmusic",
+  "version": "1.0.0",
+  "description": "LeetMusic desktop offline player",
+  "main": "src/main.js",
+  "author": "Miz",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable",
+    "pack": "npm run build"
+  },
+  "devDependencies": {
+    "electron": "31.7.7",
+    "electron-builder": "^24.13.3"
+  }
+}

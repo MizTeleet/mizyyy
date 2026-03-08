@@ -1,0 +1,15 @@
+directories:
+  output: dist
+  buildResources: assets
+appId: com.leetmusic.desktop
+productName: LeetMusic
+files:
+  - filter:
+      - src/**/*
+      - Music/**/*
+      - package.json
+win:
+  target:
+    - portable
+  artifactName: LeetMusic.exe
+electronVersion: 31.7.7
