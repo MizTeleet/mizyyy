@@ -1,31 +1,9 @@
-# LeetMusic Desktop (только программа)
+# Deprecated
 
-В проекте оставлена только desktop-версия плеера (Tkinter + pygame).
-Браузерная версия и локальные web-лаунчеры удалены.
+Старая реализация на Tkinter + pygame удалена.
 
-## Запуск как программа (без сборки)
-```bash
-python main.py
-```
+Новая desktop-версия теперь находится в:
 
-## Сборка `.exe` на Windows
-```bash
-python build_exe.py
-```
-После сборки файл будет в:
+- `LeetMusic/electron_app/`
 
-- `desktop_exe/dist/LeetMusicEXE.exe`
-
-## Где хранить музыку
-Кладите треки в папку:
-
-- `desktop_exe/Music/`
-
-Поддерживаемые форматы: `mp3`, `wav`, `ogg`, `flac`, `m4a`.
-
-## Fog overlay (опционально)
-Чтобы использовать анимированный туман как overlay, положите GIF в:
-
-- `desktop_exe/assets/fog.gif`
-
-Когда трек играет, GIF-слой появляется и анимируется; при паузе — плавно затухает.
+Используйте инструкции из `LeetMusic/electron_app/README.md`.

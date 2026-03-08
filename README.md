@@ -1,9 +1,5 @@
-# LeetMusic
+# mizyyy / LeetMusic
 
-Проект переведен в формат **только desktop-программы**.
+Используйте новую desktop-версию плеера на Electron:
 
-Основной код:
-- `LeetMusic/desktop_exe/main.py`
-
-Сборка `.exe`:
-- `LeetMusic/desktop_exe/build_exe.py`
+- `LeetMusic/electron_app/README.md`

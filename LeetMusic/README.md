@@ -1,7 +1,7 @@
 # LeetMusic
 
-Этот каталог теперь содержит только desktop-программу:
+Проект переведен на современный desktop-стек Electron.
 
-- `desktop_exe/main.py` — основной плеер
-- `desktop_exe/build_exe.py` — сборка `.exe`
-- `desktop_exe/Music/` — папка для треков
+Актуальная программа находится в:
+
+- `LeetMusic/electron_app/`

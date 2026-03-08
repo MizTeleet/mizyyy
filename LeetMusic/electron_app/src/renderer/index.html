@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetMusic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="logo">✶</div>
+        <button id="playFromHero" class="side-btn">▶</button>
+        <div class="side-icon">♫</div>
+        <div class="side-icon">♡</div>
+      </aside>
+
+      <main class="content">
+        <section class="hero" id="hero">
+          <div class="fog-overlay" id="fogOverlay"></div>
+          <h1>▶ Твой вайб</h1>
+          <p>Скинь сюда треки и будем слушать брат</p>
+        </section>
+
+        <section class="panels">
+          <div class="panel">
+            <div class="panel-head">
+              <button id="refreshBtn">Обновить</button>
+              <button id="importBtn">Импорт</button>
+              <span id="status"></span>
+            </div>
+            <ul id="trackList" class="track-list"></ul>
+          </div>
+          <div class="panel now">
+            <h2 id="nowTitle">Выберите трек</h2>
+            <p id="nowSub">LeetMusic Desktop</p>
+          </div>
+        </section>
+
+        <footer class="dock">
+          <div class="meta">
+            <div id="miniTitle">LeetMusic</div>
+            <div id="miniSub">Оффлайн плеер</div>
+          </div>
+
+          <div class="controls">
+            <button id="prevBtn">⏮</button>
+            <button id="playBtn" class="accent">▶</button>
+            <button id="nextBtn">⏭</button>
+          </div>
+
+          <div class="progress-wrap">
+            <input id="progress" type="range" min="0" max="100" value="0" />
+            <span id="time">0:00 / 0:00</span>
+          </div>
+
+          <div class="volume-wrap">
+            <span>Громк.</span>
+            <input id="volume" type="range" min="0" max="100" value="85" />
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <audio id="audio"></audio>
+    <script src="renderer.js"></script>
+  </body>
+</html>
