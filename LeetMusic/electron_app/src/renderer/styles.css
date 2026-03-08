@@ -42,3 +42,15 @@ body { margin: 0; font-family: 'Segoe UI', sans-serif; background: radial-gradie
 .eq-grid label { display:flex; flex-direction:column; gap:6px; font-size: 14px; }
 .eq-presets { display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px; }
 .eq-presets button { border:0; border-radius:8px; padding:6px 10px; background: rgba(120,145,201,.3); color:#eaf2ff; cursor:pointer; }
+
+.search-bar { display:flex; gap:8px; margin-top: 10px; padding:8px; border-radius: 12px; z-index:2; }
+.search-bar input { flex:1; border:1px solid rgba(156,182,235,.25); background: rgba(16,24,41,.7); color:#ecf3ff; border-radius:10px; padding:10px; }
+.search-status { margin-top:8px; color:#a8bce7; font-size:12px; z-index:2; }
+.search-title { margin: 10px 0 8px; font-size:14px; color:#b8c9ef; }
+.search-results { max-height: 180px; }
+.search-results li { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.search-meta { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.search-track-title { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.search-track-artist { color:#9fb5e5; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.search-actions { display:flex; gap:6px; flex-shrink:0; }
+.search-actions button { border:0; border-radius:8px; padding:6px 8px; background: rgba(68,88,127,.7); color:#eef3ff; cursor:pointer; }

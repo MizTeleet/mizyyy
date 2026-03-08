@@ -5,12 +5,18 @@ const state = {
   index: -1,
   playing: false,
   selectedFavoriteId: null,
+  searchResults: [],
+  searchRequestId: 0,
 };
 
 const el = {
   audio: document.getElementById('audio'),
   status: document.getElementById('status'),
   trackList: document.getElementById('trackList'),
+  searchResults: document.getElementById('searchResults'),
+  searchInput: document.getElementById('searchInput'),
+  searchBtn: document.getElementById('searchBtn'),
+  searchStatus: document.getElementById('searchStatus'),
   favList: document.getElementById('favList'),
   nowTitle: document.getElementById('nowTitle'),
   nowSub: document.getElementById('nowSub'),
@@ -231,8 +237,147 @@ function applyPreset(preset) {
   el.eqVocal.value = cfg.vocal;
 }
 
+function safeFileExt(url) {
+  try {
+    const pathname = new URL(url).pathname;
+    const ext = pathname.includes('.') ? pathname.slice(pathname.lastIndexOf('.')) : '.m4a';
+    return ['.mp3', '.wav', '.ogg', '.flac', '.m4a', '.aac'].includes(ext.toLowerCase()) ? ext : '.m4a';
+  } catch {
+    return '.m4a';
+  }
+}
+
+function renderSearchResults() {
+  el.searchResults.innerHTML = '';
+  state.searchResults.forEach((result) => {
+    const li = document.createElement('li');
+
+    const meta = document.createElement('div');
+    meta.className = 'search-meta';
+
+    const title = document.createElement('div');
+    title.className = 'search-track-title';
+    title.textContent = result.trackName;
+
+    const artist = document.createElement('div');
+    artist.className = 'search-track-artist';
+    artist.textContent = result.artistName;
+
+    meta.appendChild(title);
+    meta.appendChild(artist);
+
+    const actions = document.createElement('div');
+    actions.className = 'search-actions';
+
+    const playBtn = document.createElement('button');
+    playBtn.textContent = 'Play';
+    playBtn.addEventListener('click', () => {
+      if (!result.previewUrl) return;
+      el.audio.src = result.previewUrl;
+      el.audio.play();
+      state.playing = true;
+      state.index = -1;
+      el.playBtn.textContent = '⏸';
+      el.fogOverlay.classList.add('playing');
+      el.nowTitle.textContent = result.trackName;
+      el.nowSub.textContent = result.artistName;
+      el.miniTitle.textContent = result.trackName;
+      el.miniSub.textContent = result.artistName;
+      renderTracks();
+    });
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = 'Download';
+    downloadBtn.addEventListener('click', async () => {
+      await downloadSearchResult(result, false);
+    });
+
+    const favBtn = document.createElement('button');
+    favBtn.textContent = 'Add ❤';
+    favBtn.addEventListener('click', async () => {
+      await downloadSearchResult(result, true);
+    });
+
+    actions.appendChild(playBtn);
+    actions.appendChild(downloadBtn);
+    actions.appendChild(favBtn);
+
+    li.appendChild(meta);
+    li.appendChild(actions);
+    el.searchResults.appendChild(li);
+  });
+}
+
+async function downloadSearchResult(result, markFavorite) {
+  if (!result.previewUrl) {
+    el.searchStatus.textContent = 'У результата нет URL для скачивания.';
+    return;
+  }
+
+  el.searchStatus.textContent = `Скачиваю: ${result.trackName}...`;
+  try {
+    const downloaded = await api.downloadOnlineTrack({
+      url: result.previewUrl,
+      title: result.trackName,
+      artist: result.artistName,
+      ext: safeFileExt(result.previewUrl),
+    });
+
+    await loadTracks();
+    const downloadedTrack = state.tracks.find((track) => track.name === downloaded.fileName);
+    if (downloadedTrack && markFavorite) {
+      const updated = await api.saveTrackMeta(downloadedTrack.id, {
+        favorite: true,
+        customTitle: result.trackName,
+        description: result.artistName,
+      });
+      Object.assign(downloadedTrack, updated);
+      state.selectedFavoriteId = downloadedTrack.id;
+      renderTracks();
+    }
+
+    el.searchStatus.textContent = `Скачано: ${downloaded.fileName}`;
+  } catch (error) {
+    el.searchStatus.textContent = `Ошибка скачивания: ${error.message}`;
+  }
+}
+
+async function searchOnlineTracks(query) {
+  const requestId = ++state.searchRequestId;
+  const term = query.trim();
+  if (!term) {
+    state.searchResults = [];
+    renderSearchResults();
+    el.searchStatus.textContent = 'Введите название трека для поиска.';
+    return;
+  }
+
+  el.searchStatus.textContent = `Ищу: ${term}...`;
+
+  try {
+    const response = await fetch(`https://itunes.apple.com/search?entity=song&limit=15&term=${encodeURIComponent(term)}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+
+    if (requestId !== state.searchRequestId) return;
+
+    state.searchResults = Array.isArray(data.results)
+      ? data.results.filter((item) => item.trackName && item.artistName && item.previewUrl)
+      : [];
+
+    renderSearchResults();
+    el.searchStatus.textContent = `Найдено: ${state.searchResults.length}`;
+  } catch (error) {
+    if (requestId !== state.searchRequestId) return;
+    state.searchResults = [];
+    renderSearchResults();
+    el.searchStatus.textContent = `Ошибка поиска: ${error.message}`;
+  }
+}
+
 async function init() {
   await loadTracks();
+  el.searchStatus.textContent = 'Введите название трека для поиска.';
 
   el.importNavBtn.addEventListener('click', async () => {
     await api.importTracks();
@@ -250,6 +395,11 @@ async function init() {
 
   document.querySelectorAll('.eq-presets button').forEach((btn) => {
     btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+  });
+
+  el.searchBtn.addEventListener('click', () => searchOnlineTracks(el.searchInput.value));
+  el.searchInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') searchOnlineTracks(el.searchInput.value);
   });
 
   el.playBtn.addEventListener('click', togglePlay);

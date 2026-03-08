@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const { pathToFileURL } = require('url');
 
+
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
 
 function getMusicDir() {
@@ -123,6 +124,36 @@ async function exportTrackCard(win, payload) {
   return true;
 }
 
+
+
+function sanitizeFileName(name) {
+  return String(name || 'track')
+    .replace(/[\/:*?"<>|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+}
+
+async function downloadOnlineTrack(payload) {
+  const musicDir = await ensureMusicDir();
+  const url = payload?.url;
+  if (!url) throw new Error('Download URL is required');
+
+  const baseName = sanitizeFileName(`${payload.artist || 'Unknown'} - ${payload.title || 'Track'}`);
+  const ext = (payload.ext || '.m4a').startsWith('.') ? payload.ext : `.${payload.ext}`;
+  const fileName = `${baseName}${ext.toLowerCase()}`;
+  const destPath = path.join(musicDir, fileName);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download track: ${response.status}`);
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await fs.writeFile(destPath, buffer);
+  return { fileName, filePath: destPath };
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -144,6 +175,7 @@ ipcMain.handle('tracks:music-dir', async () => ensureMusicDir());
 ipcMain.handle('tracks:meta-save', async (_event, trackId, patch) => saveTrackMeta(trackId, patch));
 ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fromWebContents(event.sender)));
 ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
+ipcMain.handle('tracks:download-online', async (_event, payload) => downloadOnlineTrack(payload));
 
 app.whenReady().then(async () => {
   await ensureMusicDir();

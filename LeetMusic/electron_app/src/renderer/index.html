@@ -21,6 +21,11 @@
           <div class="fog-overlay" id="fogOverlay"></div>
           <h1>▶ Твой вайб</h1>
           <p>Скинь сюда треки и будем слушать брат</p>
+          <div class="search-bar glass">
+            <input id="searchInput" type="text" placeholder="Поиск треков онлайн..." />
+            <button id="searchBtn" class="ghost-btn">Найти</button>
+          </div>
+          <div id="searchStatus" class="search-status"></div>
         </section>
 
         <section class="tabs">
@@ -28,6 +33,8 @@
             <div class="panel glass">
               <div class="panel-head"><span id="status"></span></div>
               <ul id="trackList" class="track-list"></ul>
+              <h3 class="search-title">Результаты поиска</h3>
+              <ul id="searchResults" class="track-list search-results"></ul>
             </div>
             <div class="panel glass now-card">
               <h2 id="nowTitle">Выберите трек</h2>

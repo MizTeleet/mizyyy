@@ -7,4 +7,5 @@ contextBridge.exposeInMainWorld('leetMusicApi', {
   saveTrackMeta: (trackId, patch) => ipcRenderer.invoke('tracks:meta-save', trackId, patch),
   pickCover: () => ipcRenderer.invoke('tracks:pick-cover'),
   exportTrackCard: (payload) => ipcRenderer.invoke('tracks:export-card', payload),
+  downloadOnlineTrack: (payload) => ipcRenderer.invoke('tracks:download-online', payload),
 });
