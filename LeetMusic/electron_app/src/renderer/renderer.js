@@ -1,50 +1,18 @@
 const api = window.leetMusicApi;
 
 
-const YT_INSTANCES = [
-  'https://invidious.privacyredirect.com',
-  'https://inv.nadeko.net',
-  'https://invidious.projectsegfau.lt',
-];
+const YT_AUDIO_INSTANCE = 'https://invidious.projectsegfau.lt';
 
-function buildYoutubeAudioUrl(instance, videoId) {
-  return `${instance}/latest_version?id=${encodeURIComponent(videoId)}&itag=140`;
-}
-
-async function searchYoutubeTracks(term) {
-  let lastError = null;
-
-  for (const instance of YT_INSTANCES) {
-    try {
-      const response = await fetch(
-        `${instance}/api/v1/search?q=${encodeURIComponent(term)}&type=video&sort_by=relevance&page=1`,
-      );
-      if (!response.ok) {
-        lastError = new Error(`HTTP ${response.status}`);
-        continue;
-      }
-
-      const data = await response.json();
-      const results = Array.isArray(data)
-        ? data
-            .filter((item) => item.type === 'video' && item.videoId && item.title)
-            .slice(0, 15)
-            .map((item) => ({
-              trackName: item.title,
-              artistName: item.author || 'Unknown artist',
-              streamUrl: buildYoutubeAudioUrl(instance, item.videoId),
-            }))
-        : [];
-
-      return results;
-    } catch (error) {
-      lastError = error;
-    }
+function buildYoutubeAudioUrlFromVideo(videoUrl) {
+  try {
+    const parsed = new URL(videoUrl);
+    const videoId = parsed.searchParams.get('v') || '';
+    if (!videoId) return '';
+    return `${YT_AUDIO_INSTANCE}/latest_version?id=${encodeURIComponent(videoId)}&itag=140`;
+  } catch {
+    return '';
   }
-
-  throw lastError || new Error('YouTube search provider is unavailable');
 }
-
 
 const state = {
   tracks: [],
@@ -307,7 +275,7 @@ function renderSearchResults() {
 
     const artist = document.createElement('div');
     artist.className = 'search-track-artist';
-    artist.textContent = result.artistName;
+    artist.textContent = result.duration ? `${result.artistName} • ${result.duration}` : result.artistName;
 
     meta.appendChild(title);
     meta.appendChild(artist);
@@ -401,11 +369,21 @@ async function searchOnlineTracks(query) {
   el.searchStatus.textContent = `Ищу: ${term}...`;
 
   try {
-    const results = await searchYoutubeTracks(term);
+    const results = await api.searchOnlineTracks(term);
 
     if (requestId !== state.searchRequestId) return;
 
-    state.searchResults = results;
+    state.searchResults = Array.isArray(results)
+      ? results
+          .map((item) => ({
+            trackName: item.title,
+            artistName: item.author,
+            duration: item.duration || '',
+            videoUrl: item.videoUrl,
+            streamUrl: buildYoutubeAudioUrlFromVideo(item.videoUrl),
+          }))
+          .filter((item) => item.trackName && item.artistName && item.streamUrl)
+      : [];
 
     renderSearchResults();
     el.searchStatus.textContent = `Найдено: ${state.searchResults.length}`;

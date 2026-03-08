@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const { pathToFileURL } = require('url');
+const ytsr = require('ytsr');
 
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
@@ -154,6 +155,21 @@ async function downloadOnlineTrack(payload) {
   return { fileName, filePath: destPath };
 }
 
+
+
+async function searchYouTube(query) {
+  const results = await ytsr(query, { limit: 10 });
+  return (results.items || [])
+    .filter((item) => item.type === 'video')
+    .map((item) => ({
+      title: item.title || '',
+      author: item.author?.name || item.author || 'Unknown artist',
+      videoUrl: item.url || '',
+      duration: item.duration || '',
+    }))
+    .filter((item) => item.title && item.videoUrl);
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -176,6 +192,7 @@ ipcMain.handle('tracks:meta-save', async (_event, trackId, patch) => saveTrackMe
 ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fromWebContents(event.sender)));
 ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
 ipcMain.handle('tracks:download-online', async (_event, payload) => downloadOnlineTrack(payload));
+ipcMain.handle('tracks:search-online', async (_event, query) => searchYouTube(query));
 
 app.whenReady().then(async () => {
   await ensureMusicDir();
