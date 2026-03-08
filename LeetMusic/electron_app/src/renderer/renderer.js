@@ -379,8 +379,8 @@ async function searchOnlineTracks(query) {
             trackName: item.title,
             artistName: item.author,
             duration: item.duration || '',
-            videoUrl: item.videoUrl,
-            streamUrl: buildYoutubeAudioUrlFromVideo(item.videoUrl),
+            videoUrl: item.url || item.videoUrl,
+            streamUrl: buildYoutubeAudioUrlFromVideo(item.url || item.videoUrl || ''),
           }))
           .filter((item) => item.trackName && item.artistName && item.streamUrl)
       : [];
