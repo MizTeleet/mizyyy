@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mizyyy Player</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="container">
+      <h1>Mizyyy Player — Онлайн поиск и воспроизведение</h1>
+
+      <form id="search-form" class="search-form">
+        <input
+          id="query"
+          type="text"
+          placeholder="Например: Linkin Park, Daft Punk, Imagine Dragons"
+          autocomplete="off"
+        />
+        <button type="submit">Найти</button>
+      </form>
+
+      <p id="status" data-kind="info">Введите запрос, чтобы найти музыку из интернета.</p>
+
+      <section class="player-panel">
+        <audio id="audio-player" controls preload="none"></audio>
+        <p id="now-playing">Ничего не воспроизводится</p>
+      </section>
+
+      <ul id="results" class="results"></ul>
+    </main>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

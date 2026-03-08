@@ -1,0 +1,13 @@
+{
+  "name": "mizyyy",
+  "version": "1.0.0",
+  "description": "Electron music player with online search and streaming",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "electron .",
+    "lint": "node --check src/main.js && node --check src/preload.js && node --check src/renderer.js"
+  },
+  "dependencies": {
+    "electron": "^30.0.0"
+  }
+}
