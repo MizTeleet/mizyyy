@@ -1,5 +1,51 @@
 const api = window.leetMusicApi;
 
+
+const YT_INSTANCES = [
+  'https://invidious.privacyredirect.com',
+  'https://inv.nadeko.net',
+  'https://invidious.projectsegfau.lt',
+];
+
+function buildYoutubeAudioUrl(instance, videoId) {
+  return `${instance}/latest_version?id=${encodeURIComponent(videoId)}&itag=140`;
+}
+
+async function searchYoutubeTracks(term) {
+  let lastError = null;
+
+  for (const instance of YT_INSTANCES) {
+    try {
+      const response = await fetch(
+        `${instance}/api/v1/search?q=${encodeURIComponent(term)}&type=video&sort_by=relevance&page=1`,
+      );
+      if (!response.ok) {
+        lastError = new Error(`HTTP ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const results = Array.isArray(data)
+        ? data
+            .filter((item) => item.type === 'video' && item.videoId && item.title)
+            .slice(0, 15)
+            .map((item) => ({
+              trackName: item.title,
+              artistName: item.author || 'Unknown artist',
+              streamUrl: buildYoutubeAudioUrl(instance, item.videoId),
+            }))
+        : [];
+
+      return results;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error('YouTube search provider is unavailable');
+}
+
+
 const state = {
   tracks: [],
   index: -1,
@@ -272,8 +318,8 @@ function renderSearchResults() {
     const playBtn = document.createElement('button');
     playBtn.textContent = 'Play';
     playBtn.addEventListener('click', () => {
-      if (!result.previewUrl) return;
-      el.audio.src = result.previewUrl;
+      if (!result.streamUrl) return;
+      el.audio.src = result.streamUrl;
       el.audio.play();
       state.playing = true;
       state.index = -1;
@@ -309,18 +355,18 @@ function renderSearchResults() {
 }
 
 async function downloadSearchResult(result, markFavorite) {
-  if (!result.previewUrl) {
-    el.searchStatus.textContent = 'У результата нет URL для скачивания.';
+  if (!result.streamUrl) {
+    el.searchStatus.textContent = 'У результата нет URL для воспроизведения.';
     return;
   }
 
   el.searchStatus.textContent = `Скачиваю: ${result.trackName}...`;
   try {
     const downloaded = await api.downloadOnlineTrack({
-      url: result.previewUrl,
+      url: result.streamUrl,
       title: result.trackName,
       artist: result.artistName,
-      ext: safeFileExt(result.previewUrl),
+      ext: safeFileExt(result.streamUrl),
     });
 
     await loadTracks();
@@ -355,15 +401,11 @@ async function searchOnlineTracks(query) {
   el.searchStatus.textContent = `Ищу: ${term}...`;
 
   try {
-    const response = await fetch(`https://itunes.apple.com/search?entity=song&limit=15&term=${encodeURIComponent(term)}`);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    const results = await searchYoutubeTracks(term);
 
     if (requestId !== state.searchRequestId) return;
 
-    state.searchResults = Array.isArray(data.results)
-      ? data.results.filter((item) => item.trackName && item.artistName && item.previewUrl)
-      : [];
+    state.searchResults = results;
 
     renderSearchResults();
     el.searchStatus.textContent = `Найдено: ${state.searchResults.length}`;
