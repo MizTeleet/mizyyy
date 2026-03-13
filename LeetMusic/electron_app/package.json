@@ -7,8 +7,9 @@
   "license": "MIT",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --win portable",
-    "pack": "npm run build"
+    "build": "node scripts/rebuild-portable.js",
+    "pack": "npm run build",
+    "dist": "npm run build"
   },
   "devDependencies": {
     "electron": "31.7.7",
