@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const { pathToFileURL } = require('url');
 const ytsr = require('ytsr');
-const ytdl = require('@distube/ytdl-core');
+const { execFile } = require('child_process');
 
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
@@ -164,24 +164,40 @@ async function getAudioStream(videoUrl) {
     throw new Error('Invalid YouTube URL');
   }
 
-  if (!ytdl.validateURL(videoUrl)) {
+  const trimmedUrl = videoUrl.trim();
+
+  try {
+    new URL(trimmedUrl);
+  } catch {
     throw new Error('Unsupported YouTube URL');
   }
 
-  const info = await ytdl.getInfo(videoUrl);
-  const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
+  return new Promise((resolve, reject) => {
+    execFile(
+      'yt-dlp',
+      ['-f', 'bestaudio', '-g', trimmedUrl],
+      { timeout: 30000, maxBuffer: 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (error) {
+          console.error('yt-dlp error:', stderr || error.message);
+          reject(error);
+          return;
+        }
 
-  if (!audioFormats || audioFormats.length === 0) {
-    throw new Error('No audio formats available');
-  }
+        const streamUrl = String(stdout || '')
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .find(Boolean);
 
-  const bestFormat = audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+        if (!streamUrl) {
+          reject(new Error('No stream URL returned'));
+          return;
+        }
 
-  if (!bestFormat?.url) {
-    throw new Error('Audio stream URL not found');
-  }
-
-  return bestFormat.url;
+        resolve(streamUrl);
+      }
+    );
+  });
 }
 
 async function searchYouTube(query) {

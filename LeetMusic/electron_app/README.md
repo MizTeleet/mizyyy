@@ -12,6 +12,13 @@
 - эквалайзер в отдельном прозрачном окне (bass/mid/treble/vocal + presets)
 - fog overlay + glassmorphism UI
 
+## Зависимость для YouTube-поиска/воспроизведения
+Для онлайн-воспроизведения через YouTube требуется установленный `yt-dlp` в системе (`yt-dlp` должен быть доступен в PATH).
+
+Примеры установки:
+- Windows (winget): `winget install yt-dlp.yt-dlp`
+- Linux (pipx): `pipx install yt-dlp`
+
 ## Открыть плеер одним кликом (Windows)
 Запусти файл:
 
