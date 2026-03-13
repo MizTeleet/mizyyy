@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetMusic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar glass">
+        <div class="logo" title="LeetMusic">LM</div>
+        <button class="nav-btn active" data-tab="home">⭐</button>
+        <button class="nav-btn" data-tab="player">▶</button>
+        <button class="nav-btn" id="importNavBtn">🎵</button>
+        <button class="nav-btn" data-tab="favorites">❤</button>
+      </aside>
+
+      <main class="content">
+        <section class="hero glass" id="hero">
+          <div class="fog-overlay" id="fogOverlay"></div>
+          <h1>▶ Твой вайб</h1>
+          <p>Скинь сюда треки и будем слушать брат</p>
+          <div class="search-bar glass">
+            <input id="searchInput" type="text" placeholder="Поиск треков онлайн..." />
+            <button id="searchBtn" class="ghost-btn">Найти</button>
+          </div>
+          <div id="searchStatus" class="search-status"></div>
+        </section>
+
+        <section class="tabs">
+          <div class="tab-panel active" id="tab-home">
+            <div class="panel glass">
+              <div class="panel-head"><span id="status"></span></div>
+              <ul id="trackList" class="track-list"></ul>
+              <h3 class="search-title">Результаты поиска</h3>
+              <ul id="searchResults" class="track-list search-results"></ul>
+            </div>
+            <div class="panel glass now-card">
+              <h2 id="nowTitle">Выберите трек</h2>
+              <p id="nowSub">LeetMusic Desktop</p>
+              <button id="openEqBtn" class="ghost-btn">Эквалайзер</button>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-player">
+            <div class="panel glass player-panel">
+              <h2>Плеер</h2>
+              <p>Нажми на трек слева или на кнопку ▶ внизу.</p>
+              <button id="openEqBtn2" class="ghost-btn">Открыть эквалайзер</button>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-favorites">
+            <div class="panel glass fav-list-panel">
+              <h2>Избранные</h2>
+              <ul id="favList" class="track-list"></ul>
+            </div>
+            <div class="panel glass fav-edit-panel">
+              <h2>Редактирование трека</h2>
+              <input id="favTitleInput" placeholder="Название трека" />
+              <textarea id="favDescInput" placeholder="Описание"></textarea>
+              <div class="cover-row">
+                <img id="favCoverPreview" alt="cover" />
+                <button id="pickCoverBtn" class="ghost-btn">Добавить обложку</button>
+              </div>
+              <div class="fav-actions">
+                <button id="saveFavBtn">Сохранить</button>
+                <button id="exportFavBtn" class="ghost-btn">Сохранить на ПК</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="dock glass">
+          <div class="meta" id="bottomMetaClick">
+            <div id="miniTitle">LeetMusic</div>
+            <div id="miniSub">Оффлайн плеер</div>
+          </div>
+          <div class="controls">
+            <button id="favToggleBtn" title="Избранное">❤</button>
+            <button id="prevBtn">⏮</button>
+            <button id="playBtn" class="accent">▶</button>
+            <button id="nextBtn">⏭</button>
+          </div>
+          <div class="progress-wrap">
+            <input id="progress" type="range" min="0" max="100" value="0" />
+            <span id="time">0:00 / 0:00</span>
+          </div>
+          <div class="volume-wrap">
+            <span>Громк.</span>
+            <input id="volume" type="range" min="0" max="100" value="85" />
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <div class="eq-modal" id="eqModal" hidden>
+      <div class="eq-backdrop" id="eqCloseBackdrop"></div>
+      <div class="eq-card glass">
+        <h3>Эквалайзер</h3>
+        <div class="eq-presets">
+          <button data-preset="flat">Flat</button>
+          <button data-preset="bass">Bass Boost</button>
+          <button data-preset="vocal">Vocal</button>
+          <button data-preset="treble">Treble</button>
+        </div>
+        <div class="eq-grid">
+          <label>Частоты (mid)
+            <input id="eqMid" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Бас
+            <input id="eqBass" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Высокие
+            <input id="eqTreble" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Вокал
+            <input id="eqVocal" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+        </div>
+        <button id="eqCloseBtn" class="ghost-btn">Закрыть</button>
+      </div>
+    </div>
+
+    <audio id="audio"></audio>
+    <script src="renderer.js"></script>
+  </body>
+</html>
