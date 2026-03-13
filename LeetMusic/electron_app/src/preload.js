@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('leetMusicApi', {
   exportTrackCard: (payload) => ipcRenderer.invoke('tracks:export-card', payload),
   downloadOnlineTrack: (payload) => ipcRenderer.invoke('tracks:download-online', payload),
   searchOnlineTracks: (query) => ipcRenderer.invoke('tracks:search-online', query),
+  getAudioStream: (videoUrl) => ipcRenderer.invoke('tracks:get-audio', videoUrl),
 });

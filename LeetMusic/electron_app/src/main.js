@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs/promises');
 const { pathToFileURL } = require('url');
 const ytsr = require('ytsr');
+const ytdl = require('@distube/ytdl-core');
 
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
@@ -157,6 +158,29 @@ async function downloadOnlineTrack(payload) {
 
 
 
+
+async function getAudioStream(videoUrl) {
+  if (typeof videoUrl !== 'string' || !videoUrl.trim()) {
+    throw new Error('Invalid YouTube URL');
+  }
+
+  if (!ytdl.validateURL(videoUrl)) {
+    throw new Error('Unsupported YouTube URL');
+  }
+
+  const info = await ytdl.getInfo(videoUrl);
+  const format = ytdl.chooseFormat(info.formats, {
+    quality: 'highestaudio',
+    filter: 'audioonly',
+  });
+
+  if (!format?.url) {
+    throw new Error('Audio stream URL not found');
+  }
+
+  return format.url;
+}
+
 async function searchYouTube(query) {
   const results = await ytsr(query, { limit: 30 });
   const rawItems = Array.isArray(results?.items) ? results.items : [];
@@ -201,6 +225,16 @@ ipcMain.handle('tracks:meta-save', async (_event, trackId, patch) => saveTrackMe
 ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fromWebContents(event.sender)));
 ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
 ipcMain.handle('tracks:download-online', async (_event, payload) => downloadOnlineTrack(payload));
+ipcMain.handle('tracks:get-audio', async (_event, videoUrl) => {
+  try {
+    const streamUrl = await getAudioStream(videoUrl);
+    return streamUrl;
+  } catch (error) {
+    console.error('Audio stream error:', error);
+    return null;
+  }
+});
+
 ipcMain.handle('tracks:search-online', async (_event, query) => {
   const safeQuery = typeof query === 'string' ? query.trim() : '';
   if (!safeQuery) return [];

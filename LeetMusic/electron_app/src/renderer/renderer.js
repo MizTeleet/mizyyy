@@ -1,22 +1,6 @@
 const api = window.leetMusicApi;
 
 
-const YT_AUDIO_INSTANCE = 'https://invidious.projectsegfau.lt';
-
-function buildYoutubeAudioUrlFromVideo(videoUrl) {
-  if (!videoUrl || typeof videoUrl !== 'string') return '';
-
-  try {
-    const parsed = new URL(videoUrl);
-    const videoId = parsed.searchParams.get('v');
-    if (!videoId) return '';
-
-    return `${YT_AUDIO_INSTANCE}/latest_version?id=${encodeURIComponent(videoId)}&itag=140`;
-  } catch {
-    return '';
-  }
-}
-
 const state = {
   tracks: [],
   index: -1,
@@ -25,6 +9,18 @@ const state = {
   searchResults: [],
   searchRequestId: 0,
 };
+
+
+async function resolveAudioStreamUrl(videoUrl) {
+  if (!videoUrl || typeof videoUrl !== 'string') return '';
+
+  try {
+    const streamUrl = await api.getAudioStream(videoUrl);
+    return typeof streamUrl === 'string' && streamUrl ? streamUrl : '';
+  } catch {
+    return '';
+  }
+}
 
 const el = {
   audio: document.getElementById('audio'),
@@ -288,9 +284,14 @@ function renderSearchResults() {
 
     const playBtn = document.createElement('button');
     playBtn.textContent = 'Play';
-    playBtn.addEventListener('click', () => {
-      if (!result.streamUrl) return;
-      el.audio.src = result.streamUrl;
+    playBtn.addEventListener('click', async () => {
+      const streamUrl = await resolveAudioStreamUrl(result.videoUrl);
+      if (!streamUrl) {
+        el.searchStatus.textContent = 'Не удалось получить аудио-поток для этого видео.';
+        return;
+      }
+
+      el.audio.src = streamUrl;
       el.audio.play();
       state.playing = true;
       state.index = -1;
@@ -326,18 +327,19 @@ function renderSearchResults() {
 }
 
 async function downloadSearchResult(result, markFavorite) {
-  if (!result.streamUrl) {
-    el.searchStatus.textContent = 'У результата нет URL для воспроизведения.';
+  const streamUrl = await resolveAudioStreamUrl(result.videoUrl);
+  if (!streamUrl) {
+    el.searchStatus.textContent = 'У результата нет доступного аудио-потока.';
     return;
   }
 
   el.searchStatus.textContent = `Скачиваю: ${result.trackName}...`;
   try {
     const downloaded = await api.downloadOnlineTrack({
-      url: result.streamUrl,
+      url: streamUrl,
       title: result.trackName,
       artist: result.artistName,
-      ext: safeFileExt(result.streamUrl),
+      ext: safeFileExt(streamUrl),
     });
 
     await loadTracks();
@@ -387,10 +389,9 @@ async function searchOnlineTracks(query) {
               artistName: typeof item.author === 'string' ? item.author : 'Unknown',
               duration: typeof item.duration === 'string' ? item.duration : '',
               videoUrl: rawUrl,
-              streamUrl: buildYoutubeAudioUrlFromVideo(rawUrl),
             };
           })
-          .filter((item) => item.trackName && item.videoUrl && item.streamUrl)
+          .filter((item) => item.trackName && item.videoUrl)
       : [];
 
     renderSearchResults();
