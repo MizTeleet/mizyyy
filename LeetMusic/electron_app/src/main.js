@@ -158,10 +158,10 @@ async function downloadOnlineTrack(payload) {
 
 
 async function searchYouTube(query) {
-  const results = await ytsr(query, { limit: 15 });
+  const results = await ytsr(query, { limit: 30 });
   const rawItems = Array.isArray(results?.items) ? results.items : [];
 
-  console.log('ytsr results:', rawItems);
+  console.log('YouTube raw items:', rawItems);
 
   const videos = [];
   for (const item of rawItems) {

@@ -4,10 +4,13 @@ const api = window.leetMusicApi;
 const YT_AUDIO_INSTANCE = 'https://invidious.projectsegfau.lt';
 
 function buildYoutubeAudioUrlFromVideo(videoUrl) {
+  if (!videoUrl || typeof videoUrl !== 'string') return '';
+
   try {
     const parsed = new URL(videoUrl);
-    const videoId = parsed.searchParams.get('v') || '';
+    const videoId = parsed.searchParams.get('v');
     if (!videoId) return '';
+
     return `${YT_AUDIO_INSTANCE}/latest_version?id=${encodeURIComponent(videoId)}&itag=140`;
   } catch {
     return '';
@@ -375,16 +378,16 @@ async function searchOnlineTracks(query) {
 
     state.searchResults = Array.isArray(results)
       ? results
-          .filter((item) => item && typeof item === 'object')
+          .filter((item) => item && typeof item === 'object' && typeof item.url === 'string' && item.url.length > 0)
           .map((item) => {
-            const rawUrl = typeof item.url === 'string' ? item.url : '';
+            const rawUrl = item.url;
 
             return {
               trackName: typeof item.title === 'string' ? item.title : '',
               artistName: typeof item.author === 'string' ? item.author : 'Unknown',
               duration: typeof item.duration === 'string' ? item.duration : '',
               videoUrl: rawUrl,
-              streamUrl: rawUrl ? buildYoutubeAudioUrlFromVideo(rawUrl) : '',
+              streamUrl: buildYoutubeAudioUrlFromVideo(rawUrl),
             };
           })
           .filter((item) => item.trackName && item.videoUrl && item.streamUrl)
