@@ -169,16 +169,19 @@ async function getAudioStream(videoUrl) {
   }
 
   const info = await ytdl.getInfo(videoUrl);
-  const format = ytdl.chooseFormat(info.formats, {
-    quality: 'highestaudio',
-    filter: 'audioonly',
-  });
+  const audioFormats = ytdl.filterFormats(info.formats, 'audioonly');
 
-  if (!format?.url) {
+  if (!audioFormats || audioFormats.length === 0) {
+    throw new Error('No audio formats available');
+  }
+
+  const bestFormat = audioFormats.sort((a, b) => (b.bitrate || 0) - (a.bitrate || 0))[0];
+
+  if (!bestFormat?.url) {
     throw new Error('Audio stream URL not found');
   }
 
-  return format.url;
+  return bestFormat.url;
 }
 
 async function searchYouTube(query) {
