@@ -239,7 +239,6 @@ function closeEq() {
 }
 
 document.getElementById('openEqBtn').addEventListener('click', openEq);
-document.getElementById('openEqBtn2').addEventListener('click', openEq);
 document.getElementById('bottomMetaClick').addEventListener('click', openEq);
 document.getElementById('eqCloseBtn').addEventListener('click', closeEq);
 document.getElementById('eqCloseBackdrop').addEventListener('click', closeEq);
