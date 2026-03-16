@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetMusic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar glass">
+        <div class="logo" title="LeetMusic">LM</div>
+        <button class="nav-btn active" data-tab="home" title="Home">⭐</button>
+        <button class="nav-btn" data-tab="music" title="Music">🎵</button>
+        <button class="nav-btn" data-tab="favorites" title="Favorites">❤</button>
+      </aside>
+
+      <main class="content">
+        <section class="hero glass" id="hero">
+          <div class="fog-overlay" id="fogOverlay"></div>
+          <article class="hero-current glass-soft">
+            <div class="hero-cover">LM</div>
+            <div>
+              <h2 id="nowTitle">Твой вайб</h2>
+              <p id="nowSub">Слушай музыку в LeetMusic</p>
+            </div>
+            <button id="openEqBtn" class="ghost-btn">Эквалайзер</button>
+          </article>
+
+          <div class="hero-center">
+            <h1>▶ Твой вайб</h1>
+            <p>Тут можешь послушать музыку</p>
+          </div>
+        </section>
+
+        <section class="tabs">
+          <div class="tab-panel active" id="tab-home">
+            <section class="search glass">
+              <input id="ytSearchInput" placeholder="Поиск музыки на YouTube..." />
+              <button id="ytSearchBtn">Search</button>
+            </section>
+
+            <section class="yt-results panel glass" id="ytResultsWrap">
+              <h3>YouTube результаты</h3>
+              <ul id="ytResults" class="yt-list"></ul>
+            </section>
+          </div>
+
+          <div class="tab-panel" id="tab-music">
+            <div class="panel glass">
+              <div class="panel-head">
+                <span id="status"></span>
+                <button id="importBtn">Импорт</button>
+              </div>
+              <h3>Локальная коллекция</h3>
+              <ul id="trackList" class="track-list"></ul>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-favorites">
+            <div class="panel glass fav-list-panel">
+              <h2>Избранные</h2>
+              <ul id="favList" class="track-list"></ul>
+            </div>
+            <div class="panel glass fav-edit-panel">
+              <h2>Редактирование трека</h2>
+              <input id="favTitleInput" placeholder="Название трека" />
+              <textarea id="favDescInput" placeholder="Описание"></textarea>
+              <div class="cover-row">
+                <img id="favCoverPreview" alt="cover" />
+                <button id="pickCoverBtn" class="ghost-btn">Добавить обложку</button>
+              </div>
+              <div class="fav-actions">
+                <button id="saveFavBtn">Сохранить</button>
+                <button id="exportFavBtn" class="ghost-btn">Сохранить на ПК</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="dock glass">
+          <div class="meta" id="bottomMetaClick">
+            <div id="miniTitle">LeetMusic</div>
+            <div id="miniSub">Оффлайн плеер</div>
+          </div>
+          <div class="controls">
+            <button id="favToggleBtn" title="Избранное">❤</button>
+            <button id="prevBtn">⏮</button>
+            <button id="playBtn" class="accent">▶</button>
+            <button id="nextBtn">⏭</button>
+          </div>
+          <div class="progress-wrap">
+            <input id="progress" type="range" min="0" max="100" value="0" />
+            <span id="time">0:00 / 0:00</span>
+          </div>
+          <div class="volume-wrap">
+            <span>Громк.</span>
+            <input id="volume" type="range" min="0" max="100" value="85" />
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <div class="eq-modal" id="eqModal" hidden>
+      <div class="eq-backdrop" id="eqCloseBackdrop"></div>
+      <div class="eq-card glass">
+        <h3>Эквалайзер</h3>
+        <div class="eq-presets">
+          <button data-preset="flat">Flat</button>
+          <button data-preset="bass">Bass Boost</button>
+          <button data-preset="vocal">Vocal</button>
+          <button data-preset="treble">Treble</button>
+        </div>
+        <div class="eq-grid">
+          <label>Частоты (mid)
+            <input id="eqMid" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Бас
+            <input id="eqBass" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Высокие
+            <input id="eqTreble" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Вокал
+            <input id="eqVocal" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+        </div>
+        <button id="eqCloseBtn" class="ghost-btn">Закрыть</button>
+      </div>
+    </div>
+
+    <audio id="audio"></audio>
+    <script src="renderer.js"></script>
+  </body>
+</html>
