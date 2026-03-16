@@ -34,6 +34,23 @@ let midFilter;
 let trebleFilter;
 let vocalFilter;
 
+
+function refreshIcons() {
+  if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function setPlayButtonState(isPlaying) {
+  const icon = isPlaying ? 'pause' : 'play';
+  playBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+  playBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+  refreshIcons();
+}
+
+function setFavoriteButtonState(isFav) {
+  favToggleBtn.classList.toggle('is-favorite', Boolean(isFav));
+  favToggleBtn.style.opacity = isFav ? '1' : '0.75';
+}
+
 function fmt(sec) {
   if (!Number.isFinite(sec)) return '0:00';
   const m = Math.floor(sec / 60);
@@ -165,8 +182,8 @@ async function playTrack(index) {
   nowSub.textContent = track.description || track.name;
   miniTitle.textContent = displayTitle;
   miniSub.textContent = track.name;
-  playBtn.textContent = '❚❚';
-  favToggleBtn.style.opacity = track.favorite ? '1' : '0.6';
+  setPlayButtonState(true);
+  setFavoriteButtonState(track.favorite);
   setFogPlaying(true);
   renderTracks();
 }
@@ -181,7 +198,7 @@ async function playYoutubeResult(item) {
   nowSub.textContent = `${item.author || 'YouTube'} ${item.duration ? `• ${item.duration}` : ''}`;
   miniTitle.textContent = item.title;
   miniSub.textContent = 'YouTube stream';
-  playBtn.textContent = '❚❚';
+  setPlayButtonState(true);
   setFogPlaying(true);
 }
 
@@ -195,11 +212,11 @@ playBtn.addEventListener('click', async () => {
   if (audio.paused) {
     if (audioCtx?.state === 'suspended') await audioCtx.resume();
     await audio.play();
-    playBtn.textContent = '❚❚';
+    setPlayButtonState(true);
     setFogPlaying(true);
   } else {
     audio.pause();
-    playBtn.textContent = '▶';
+    setPlayButtonState(false);
     setFogPlaying(false);
   }
 });
@@ -209,7 +226,7 @@ favToggleBtn.addEventListener('click', async () => {
   if (!track) return;
   track.favorite = !track.favorite;
   await api.saveTrackMeta(track.id, { favorite: track.favorite });
-  favToggleBtn.style.opacity = track.favorite ? '1' : '0.6';
+  setFavoriteButtonState(track.favorite);
   renderTracks();
 });
 
@@ -424,3 +441,6 @@ api.getMusicDir().then((dir) => {
 refreshTracks();
 switchTab('home');
 setEqValues(presets.flat);
+setPlayButtonState(false);
+setFavoriteButtonState(false);
+refreshIcons();

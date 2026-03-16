@@ -84,10 +84,10 @@
             <div id="miniSub">Оффлайн плеер</div>
           </div>
           <div class="controls">
-            <button id="favToggleBtn" title="Избранное">❤</button>
-            <button id="prevBtn">⏮</button>
-            <button id="playBtn" class="accent">▶</button>
-            <button id="nextBtn">⏭</button>
+            <button id="favToggleBtn" title="Избранное" aria-label="Избранное"><i data-lucide="heart"></i></button>
+            <button id="prevBtn" aria-label="Предыдущий"><i data-lucide="skip-back"></i></button>
+            <button id="playBtn" class="accent" aria-label="Play"><i data-lucide="play"></i></button>
+            <button id="nextBtn" aria-label="Следующий"><i data-lucide="skip-forward"></i></button>
           </div>
           <div class="progress-wrap">
             <input id="progress" type="range" min="0" max="100" value="0" />
@@ -130,6 +130,7 @@
     </div>
 
     <audio id="audio"></audio>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>
