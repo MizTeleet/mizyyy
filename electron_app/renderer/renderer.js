@@ -60,7 +60,8 @@ function renderTracks() {
   } else {
     tracks.forEach((track, i) => {
       const li = document.createElement('li');
-      li.textContent = `${track.favorite ? '❤ ' : ''}${track.customTitle || track.title}`;
+      const displayTitle = track.customTitle || track.title;
+      li.innerHTML = `<strong>${track.favorite ? '❤ ' : ''}${displayTitle}</strong><br/><small>${track.description || track.name}</small>`;
       if (i === currentIndex) li.classList.add('active');
       li.addEventListener('click', () => playTrack(i));
       trackListEl.append(li);

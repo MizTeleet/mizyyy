@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
 const { spawn } = require('child_process');
@@ -188,6 +188,7 @@ async function downloadYouTubeAudio(videoUrl) {
 }
 
 function createWindow() {
+  Menu.setApplicationMenu(null);
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -198,6 +199,8 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
+
+  win.setMenuBarVisibility(false);
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
