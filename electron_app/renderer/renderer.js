@@ -14,6 +14,7 @@ const timeEl = document.getElementById('time');
 const volume = document.getElementById('volume');
 const fogOverlay = document.getElementById('fogOverlay');
 const favToggleBtn = document.getElementById('favToggleBtn');
+const ytResultsEl = document.getElementById('ytResults');
 
 const favTitleInput = document.getElementById('favTitleInput');
 const favDescInput = document.getElementById('favDescInput');
@@ -24,6 +25,7 @@ let currentIndex = -1;
 let selectedFavId = null;
 let seeking = false;
 let musicDirHint = '';
+let ytFavorites = [];
 
 let audioCtx;
 let sourceNode;
@@ -70,17 +72,22 @@ function renderTracks() {
 
 function renderFavorites() {
   favListEl.innerHTML = '';
-  const favTracks = tracks.filter((t) => t.favorite);
-  if (!favTracks.length) {
+  const localFavTracks = tracks.filter((t) => t.favorite);
+  const allFav = [
+    ...localFavTracks.map((t) => ({ id: t.id, title: t.customTitle || t.title, isYoutube: false })),
+    ...ytFavorites.map((t) => ({ id: `yt:${t.id}`, title: `YT: ${t.title}`, isYoutube: true })),
+  ];
+
+  if (!allFav.length) {
     const li = document.createElement('li');
     li.textContent = 'Избранных треков пока нет';
     favListEl.append(li);
     return;
   }
 
-  favTracks.forEach((track) => {
+  allFav.forEach((track) => {
     const li = document.createElement('li');
-    li.textContent = track.customTitle || track.title;
+    li.textContent = track.title;
     if (track.id === selectedFavId) li.classList.add('active');
     li.addEventListener('click', () => selectFavorite(track.id));
     favListEl.append(li);
@@ -89,6 +96,15 @@ function renderFavorites() {
 
 function selectFavorite(trackId) {
   selectedFavId = trackId;
+  if (trackId.startsWith('yt:')) {
+    const item = ytFavorites.find((x) => `yt:${x.id}` === trackId);
+    favTitleInput.value = item?.title || '';
+    favDescInput.value = item?.description || '';
+    favCoverPreview.src = item?.thumbnail || '';
+    renderFavorites();
+    return;
+  }
+
   const track = tracks.find((t) => t.id === trackId);
   if (!track) return;
   favTitleInput.value = track.customTitle || track.title;
@@ -100,7 +116,7 @@ function selectFavorite(trackId) {
 async function refreshTracks() {
   tracks = await api.listTracks();
   if (currentIndex >= tracks.length) currentIndex = -1;
-  if (selectedFavId && !tracks.some((t) => t.id === selectedFavId)) selectedFavId = null;
+  if (selectedFavId && !tracks.some((t) => t.id === selectedFavId) && !selectedFavId.startsWith('yt:')) selectedFavId = null;
   renderTracks();
 }
 
@@ -145,13 +161,27 @@ async function playTrack(index) {
 
   const displayTitle = track.customTitle || track.title;
   nowTitle.textContent = displayTitle;
-  nowSub.textContent = track.description || track.name; // no duplicate title
+  nowSub.textContent = track.description || track.name;
   miniTitle.textContent = displayTitle;
   miniSub.textContent = track.name;
   playBtn.textContent = '❚❚';
   favToggleBtn.style.opacity = track.favorite ? '1' : '0.6';
   setFogPlaying(true);
   renderTracks();
+}
+
+async function playYoutubeResult(item) {
+  await ensureAudioGraph();
+  if (audioCtx.state === 'suspended') await audioCtx.resume();
+  const streamUrl = await api.ytStreamUrl(item.url);
+  audio.src = streamUrl;
+  await audio.play();
+  nowTitle.textContent = item.title;
+  nowSub.textContent = `${item.author || 'YouTube'} ${item.duration ? `• ${item.duration}` : ''}`;
+  miniTitle.textContent = item.title;
+  miniSub.textContent = 'YouTube stream';
+  playBtn.textContent = '❚❚';
+  setFogPlaying(true);
 }
 
 function switchTab(tab) {
@@ -199,6 +229,54 @@ document.getElementById('importNavBtn').addEventListener('click', async () => {
   tracks = result.tracks;
   statusEl.textContent = `Треков: ${tracks.length} (+${result.copied})`;
   renderTracks();
+});
+
+document.getElementById('ytSearchBtn').addEventListener('click', async () => {
+  const query = document.getElementById('ytSearchInput').value.trim();
+  ytResultsEl.innerHTML = '';
+  if (!query) return;
+  const results = await api.ytSearch(query);
+  if (!results.length) {
+    ytResultsEl.innerHTML = '<li class="yt-item">Ничего не найдено</li>';
+    return;
+  }
+
+  results.forEach((item) => {
+    const li = document.createElement('li');
+    li.className = 'yt-item';
+    const info = document.createElement('div');
+    info.innerHTML = `<strong>${item.title}</strong><br/><small>${item.author || ''} ${item.duration ? '• ' + item.duration : ''}</small>`;
+
+    const actions = document.createElement('div');
+    actions.className = 'yt-actions';
+
+    const play = document.createElement('button');
+    play.textContent = 'Play';
+    play.addEventListener('click', () => playYoutubeResult(item));
+
+    const dl = document.createElement('button');
+    dl.textContent = 'Download';
+    dl.addEventListener('click', async () => {
+      await api.ytDownload(item.url);
+      await refreshTracks();
+    });
+
+    const fav = document.createElement('button');
+    fav.textContent = 'Add to favorites';
+    fav.addEventListener('click', () => {
+      if (!ytFavorites.some((x) => x.id === item.id)) ytFavorites.push({ ...item, description: '' });
+      renderFavorites();
+      switchTab('favorites');
+    });
+
+    actions.append(play, dl, fav);
+    li.append(info, actions);
+    ytResultsEl.append(li);
+  });
+});
+
+document.getElementById('ytSearchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') document.getElementById('ytSearchBtn').click();
 });
 
 progress.addEventListener('input', () => {
@@ -281,7 +359,7 @@ document.querySelectorAll('.eq-presets button').forEach((btn) => {
 });
 
 document.getElementById('pickCoverBtn').addEventListener('click', async () => {
-  if (!selectedFavId) return;
+  if (!selectedFavId || selectedFavId.startsWith('yt:')) return;
   const coverPath = await api.pickCover();
   if (!coverPath) return;
   await api.saveTrackMeta(selectedFavId, { coverPath });
@@ -291,6 +369,16 @@ document.getElementById('pickCoverBtn').addEventListener('click', async () => {
 
 document.getElementById('saveFavBtn').addEventListener('click', async () => {
   if (!selectedFavId) return;
+  if (selectedFavId.startsWith('yt:')) {
+    const item = ytFavorites.find((x) => `yt:${x.id}` === selectedFavId);
+    if (!item) return;
+    item.title = favTitleInput.value.trim() || item.title;
+    item.description = favDescInput.value.trim();
+    renderFavorites();
+    selectFavorite(selectedFavId);
+    return;
+  }
+
   await api.saveTrackMeta(selectedFavId, {
     customTitle: favTitleInput.value.trim(),
     description: favDescInput.value.trim(),
@@ -302,6 +390,20 @@ document.getElementById('saveFavBtn').addEventListener('click', async () => {
 
 document.getElementById('exportFavBtn').addEventListener('click', async () => {
   if (!selectedFavId) return;
+  if (selectedFavId.startsWith('yt:')) {
+    const item = ytFavorites.find((x) => `yt:${x.id}` === selectedFavId);
+    if (!item) return;
+    await api.exportTrackCard({
+      id: item.id,
+      title: item.title,
+      filename: item.title,
+      description: item.description || '',
+      coverPath: item.thumbnail || '',
+      youtubeUrl: item.url,
+    });
+    return;
+  }
+
   const track = tracks.find((t) => t.id === selectedFavId);
   if (!track) return;
   await api.exportTrackCard({

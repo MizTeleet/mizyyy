@@ -1,17 +1,13 @@
-# mizyyy / LeetMusic
+# LeetMusic
 
-Используйте новую desktop-версию плеера на Electron:
+Основной проект находится только в папке:
 
-- `LeetMusic/electron_app/README.md`
+- `electron_app/`
 
-Быстрый запуск сборки `.exe` для Windows:
+Быстрый запуск на Windows:
 
-- `LeetMusic/electron_app/build_windows_exe.bat`
+- `electron_app/open_LeetMusic.bat`
 
-Открыть плеер одним кликом на Windows:
+Сборка `.exe`:
 
-- `LeetMusic/electron_app/open_LeetMusic.bat`
-
-Uninstaller (очистка данных):
-
-- `LeetMusic/electron_app/uninstall_LeetMusic.bat`
+- `electron_app/build_windows_exe.bat`

@@ -2,7 +2,7 @@
   "name": "leetmusic-desktop",
   "version": "1.0.0",
   "description": "LeetMusic desktop app on Electron",
-  "main": "src/main.js",
+  "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "npm run build:win",
@@ -15,8 +15,11 @@
       "buildResources": "assets"
     },
     "files": [
-      "src/**/*",
+      "main.js",
+      "preload.js",
+      "renderer/**/*",
       "Music/**/*",
+      "yt-dlp.exe",
       "package.json"
     ],
     "win": {
@@ -24,10 +27,16 @@
         "portable"
       ],
       "artifactName": "LeetMusic.exe"
-    }
+    },
+    "asarUnpack": [
+      "yt-dlp.exe"
+    ]
   },
   "devDependencies": {
     "electron": "^31.0.2",
     "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "ytsr": "^3.8.4"
   }
 }

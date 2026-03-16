@@ -1,7 +1,9 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
+const { spawn } = require('child_process');
 const { pathToFileURL } = require('url');
+const ytsr = require('ytsr');
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
 
@@ -12,6 +14,49 @@ function getMusicDir() {
 
 function getMetaFile() {
   return path.join(app.getPath('userData'), 'track_meta.json');
+}
+
+function getYtDlpPaths() {
+  const localExe = path.join(app.getAppPath(), 'yt-dlp.exe');
+  const fallbackExe = path.join(process.cwd(), 'yt-dlp.exe');
+  return [localExe, fallbackExe, 'yt-dlp'];
+}
+
+async function resolveYtDlpBinary() {
+  const candidates = getYtDlpPaths();
+  for (const candidate of candidates) {
+    if (candidate === 'yt-dlp') return candidate;
+    try {
+      const stat = await fs.stat(candidate);
+      if (stat.isFile()) return candidate;
+    } catch {}
+  }
+  throw new Error('yt-dlp.exe не найден в папке electron_app');
+}
+
+function runYtDlp(args) {
+  return new Promise(async (resolve, reject) => {
+    let bin;
+    try {
+      bin = await resolveYtDlpBinary();
+    } catch (e) {
+      reject(e);
+      return;
+    }
+
+    const proc = spawn(bin, args, { windowsHide: true });
+    let stdout = '';
+    let stderr = '';
+
+    proc.stdout.on('data', (d) => (stdout += d.toString()));
+    proc.stderr.on('data', (d) => (stderr += d.toString()));
+
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code === 0) resolve(stdout.trim());
+      else reject(new Error(stderr || `yt-dlp exited with code ${code}`));
+    });
+  });
 }
 
 async function readMeta() {
@@ -33,15 +78,10 @@ async function ensureMusicDir() {
   const musicDir = getMusicDir();
   try {
     const stat = await fs.stat(musicDir);
-    if (!stat.isDirectory()) {
-      throw new Error(`Music path exists but is not a directory: ${musicDir}`);
-    }
+    if (!stat.isDirectory()) throw new Error(`Music path exists but is not a directory: ${musicDir}`);
   } catch (error) {
-    if (error && error.code === 'ENOENT') {
-      await fs.mkdir(musicDir, { recursive: true });
-    } else {
-      throw error;
-    }
+    if (error && error.code === 'ENOENT') await fs.mkdir(musicDir, { recursive: true });
+    else throw error;
   }
   return musicDir;
 }
@@ -76,9 +116,7 @@ async function importTracks(win) {
     filters: [{ name: 'Audio', extensions: ['mp3', 'wav', 'ogg', 'flac', 'm4a'] }],
   });
 
-  if (result.canceled || !result.filePaths.length) {
-    return { copied: 0, tracks: await listTracks() };
-  }
+  if (result.canceled || !result.filePaths.length) return { copied: 0, tracks: await listTracks() };
 
   let copied = 0;
   for (const sourcePath of result.filePaths) {
@@ -94,10 +132,7 @@ async function importTracks(win) {
 
 async function saveTrackMeta(trackId, patch) {
   const meta = await readMeta();
-  meta[trackId] = {
-    ...meta[trackId],
-    ...patch,
-  };
+  meta[trackId] = { ...meta[trackId], ...patch };
   await writeMeta(meta);
   return meta[trackId];
 }
@@ -123,6 +158,34 @@ async function exportTrackCard(win, payload) {
   return true;
 }
 
+async function searchYouTube(query) {
+  if (!query || !query.trim()) return [];
+  const results = await ytsr(query, { limit: 10 });
+  return results.items
+    .filter((item) => item.type === 'video')
+    .map((v) => ({
+      id: v.id,
+      title: v.title,
+      author: v.author?.name || '',
+      duration: v.duration || '',
+      url: v.url,
+      thumbnail: v.bestThumbnail?.url || '',
+    }));
+}
+
+async function getYouTubeStreamUrl(videoUrl) {
+  const out = await runYtDlp(['-g', '-f', 'bestaudio', videoUrl]);
+  const line = out.split(/\r?\n/).find(Boolean);
+  if (!line) throw new Error('Не удалось получить stream URL');
+  return line;
+}
+
+async function downloadYouTubeAudio(videoUrl) {
+  const musicDir = await ensureMusicDir();
+  await runYtDlp(['-x', '--audio-format', 'mp3', '--audio-quality', '0', '-o', path.join(musicDir, '%(title)s.%(ext)s'), videoUrl]);
+  return await listTracks();
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -144,6 +207,9 @@ ipcMain.handle('tracks:music-dir', async () => ensureMusicDir());
 ipcMain.handle('tracks:meta-save', async (_event, trackId, patch) => saveTrackMeta(trackId, patch));
 ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fromWebContents(event.sender)));
 ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
+ipcMain.handle('yt:search', async (_event, query) => searchYouTube(query));
+ipcMain.handle('yt:stream-url', async (_event, videoUrl) => getYouTubeStreamUrl(videoUrl));
+ipcMain.handle('yt:download', async (_event, videoUrl) => downloadYouTubeAudio(videoUrl));
 
 app.whenReady().then(async () => {
   await ensureMusicDir();
