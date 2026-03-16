@@ -91,9 +91,35 @@ button:hover { transform: scale(1.04); background: rgba(109,136,194,.9); box-sha
 .meta { cursor: pointer; min-width: 0; }
 #miniTitle { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #miniSub { color: var(--muted); font-size: .9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.controls { display: flex; gap: 6px; }
-.controls button { min-width: 36px; min-height: 34px; }
-.accent { background: #ffd348 !important; color: #1a2233; }
+.controls { display: flex; gap: 10px; }
+.controls button {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  background: linear-gradient(180deg, rgba(68, 89, 136, 0.95), rgba(47, 64, 104, 0.95));
+  border: 1px solid rgba(140, 167, 220, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 8px 18px rgba(0, 0, 0, 0.28);
+  transition: transform .18s ease, filter .18s ease, background .18s ease;
+}
+.controls button:hover {
+  transform: translateY(-1px) scale(1.06);
+  filter: brightness(1.14);
+  background: linear-gradient(180deg, rgba(80, 105, 158, 0.98), rgba(60, 82, 130, 0.98));
+}
+.controls button:active { transform: scale(0.98); }
+.accent {
+  background: linear-gradient(180deg, #ffd84f, #f7c92a) !important;
+  color: #1a2233;
+  border-color: rgba(255, 227, 128, 0.72) !important;
+}
+.accent:hover {
+  background: linear-gradient(180deg, #ffe06a, #ffd438) !important;
+}
 .progress-wrap, .volume-wrap { display: flex; align-items: center; gap: 8px; }
 .progress-wrap input { width: 100%; }
 input[type='range'] { accent-color: var(--accent); }
