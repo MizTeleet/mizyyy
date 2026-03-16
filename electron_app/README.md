@@ -14,6 +14,7 @@
 - эквалайзер (bass/mid/treble/vocal + presets)
 - поиск YouTube (ytsr)
 - результаты с кнопками: Play / Download / Add to favorites
+- в поиске YouTube отображается максимум 5 результатов
 - Play для YouTube через `yt-dlp` stream URL
 
 ## Установка

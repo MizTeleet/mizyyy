@@ -235,7 +235,7 @@ document.getElementById('ytSearchBtn').addEventListener('click', async () => {
   const query = document.getElementById('ytSearchInput').value.trim();
   ytResultsEl.innerHTML = '';
   if (!query) return;
-  const results = await api.ytSearch(query);
+  const results = (await api.ytSearch(query)).slice(0, 5);
   if (!results.length) {
     ytResultsEl.innerHTML = '<li class="yt-item">Ничего не найдено</li>';
     return;
