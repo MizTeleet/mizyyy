@@ -44,10 +44,12 @@ function refreshIcons() {
 }
 
 function setPlayButtonState(isPlaying) {
-  const icon = isPlaying ? 'pause' : 'play';
-  playBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+  const dockIcon = isPlaying ? 'pause' : 'play';
+  playBtn.innerHTML = `<i data-lucide="${dockIcon}"></i>`;
   playBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
-  heroPlayBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+
+  heroPlayBtn.innerHTML = '<i data-lucide="play"></i>';
+  heroPlayBtn.classList.toggle('playing', isPlaying);
   heroPlayBtn.setAttribute('aria-label', isPlaying ? 'Hero pause' : 'Hero play');
   refreshIcons();
 }

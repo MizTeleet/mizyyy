@@ -46,18 +46,30 @@ body {
 .hero-current h2 { margin: 0; font-size: 1.06rem; }
 .hero-current p { margin: 2px 0 0; color: var(--muted); font-size: .95rem; }
 .hero-center { position: relative; z-index: 2; text-align: center; margin-top: -22px; }
-.hero-play-trigger {
-  width: 108px;
-  height: 108px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 30% 20%, rgba(155, 185, 255, 0.35), rgba(33, 66, 132, 0.85));
-  border: 1px solid rgba(173, 204, 255, 0.32);
-  display: grid;
-  place-items: center;
-  margin: 0 auto 12px;
+.hero-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
 }
-.hero-play-trigger svg { width: 52px; height: 52px; stroke-width: 1.8; }
-.hero-play-trigger:hover { transform: scale(1.05); filter: brightness(1.08); }
+.hero-play-inline {
+  border: 0;
+  background: transparent;
+  color: #e8f0ff;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.hero-play-inline:hover {
+  background: transparent;
+  box-shadow: none;
+  transform: scale(1.06);
+  filter: brightness(1.14);
+}
+.hero-play-inline svg { width: 46px; height: 46px; stroke-width: 2; }
+.hero-play-inline.playing svg { filter: drop-shadow(0 0 10px rgba(129, 176, 255, 0.45)); }
 
 .hero-center h1 {
   --beat-intensity: 0;
