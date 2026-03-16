@@ -46,12 +46,49 @@ body {
 .hero-current h2 { margin: 0; font-size: 1.06rem; }
 .hero-current p { margin: 2px 0 0; color: var(--muted); font-size: .95rem; }
 .hero-center { position: relative; z-index: 2; text-align: center; margin-top: -22px; }
-.hero-center h1 { margin: 0; font-size: clamp(2rem, 6vw, 4.1rem); }
+.hero-play-trigger {
+  width: 108px;
+  height: 108px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 20%, rgba(155, 185, 255, 0.35), rgba(33, 66, 132, 0.85));
+  border: 1px solid rgba(173, 204, 255, 0.32);
+  display: grid;
+  place-items: center;
+  margin: 0 auto 12px;
+}
+.hero-play-trigger svg { width: 52px; height: 52px; stroke-width: 1.8; }
+.hero-play-trigger:hover { transform: scale(1.05); filter: brightness(1.08); }
+
+.hero-center h1 {
+  --beat-intensity: 0;
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 4.1rem);
+  transition: opacity .35s ease, filter .35s ease;
+}
+.hero-center h1.playing {
+  background: linear-gradient(90deg, rgba(239, 246, 255, 0.96), rgba(167, 199, 255, 0.92), rgba(120, 173, 255, 0.98));
+  background-size: 220% 220%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  opacity: calc(0.84 + var(--beat-intensity) * 0.16);
+  animation: heroGradientFlow 4.5s ease-in-out infinite, heroPulse 1.2s ease-in-out infinite;
+}
 .hero-center p { display: inline-block; margin: 14px 0 0; padding: 8px 18px; border-radius: 12px; color: #d6e4ff; background: rgba(30, 66, 126, 0.42); }
 
 .fog-overlay { position: absolute; left: 0; right: 0; bottom: -8px; height: 48%; opacity: .2; pointer-events: none; background: radial-gradient(110% 100% at 18% 100%, rgba(182,206,255,.34), transparent 52%), radial-gradient(110% 100% at 52% 100%, rgba(160,194,255,.30), transparent 56%), radial-gradient(120% 120% at 88% 100%, rgba(180,214,255,.28), transparent 58%); filter: blur(24px); transform: translateY(26px); transition: opacity .45s ease; animation: fogDrift 10s ease-in-out infinite; }
 .fog-overlay.playing { opacity: .88; }
 @keyframes fogDrift { 0%, 100% { transform: translateY(24px) translateX(0); } 50% { transform: translateY(-18px) translateX(-2%); } }
+
+@keyframes heroGradientFlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes heroPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(126, 170, 255, 0)); }
+  50% { transform: scale(calc(1 + var(--beat-intensity) * 0.045)); filter: drop-shadow(0 0 calc(12px + var(--beat-intensity) * 20px) rgba(130, 178, 255, 0.42)); }
+}
 
 button { border: 0; border-radius: 10px; cursor: pointer; color: #eaf2ff; background: rgba(88,111,160,.68); transition: transform .2s ease, background .2s ease, box-shadow .2s ease; }
 button:hover { transform: scale(1.04); background: rgba(109,136,194,.9); box-shadow: 0 8px 16px rgba(0,0,0,.28); }

@@ -15,6 +15,8 @@ const volume = document.getElementById('volume');
 const fogOverlay = document.getElementById('fogOverlay');
 const favToggleBtn = document.getElementById('favToggleBtn');
 const ytResultsEl = document.getElementById('ytResults');
+const heroPlayBtn = document.getElementById('heroPlayBtn');
+const heroVibeTitle = document.getElementById('heroVibeTitle');
 
 const favTitleInput = document.getElementById('favTitleInput');
 const favDescInput = document.getElementById('favDescInput');
@@ -33,6 +35,8 @@ let bassFilter;
 let midFilter;
 let trebleFilter;
 let vocalFilter;
+let analyserNode;
+let heroAnimationFrame = null;
 
 
 function refreshIcons() {
@@ -43,6 +47,8 @@ function setPlayButtonState(isPlaying) {
   const icon = isPlaying ? 'pause' : 'play';
   playBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
   playBtn.setAttribute('aria-label', isPlaying ? 'Pause' : 'Play');
+  heroPlayBtn.innerHTML = `<i data-lucide="${icon}"></i>`;
+  heroPlayBtn.setAttribute('aria-label', isPlaying ? 'Hero pause' : 'Hero play');
   refreshIcons();
 }
 
@@ -64,6 +70,63 @@ function activeTrack() {
 
 function setFogPlaying(playing) {
   fogOverlay.classList.toggle('playing', playing);
+}
+
+
+function stopHeroBeatAnimation() {
+  if (heroAnimationFrame) cancelAnimationFrame(heroAnimationFrame);
+  heroAnimationFrame = null;
+  heroVibeTitle.classList.remove('playing');
+  heroVibeTitle.style.setProperty('--beat-intensity', '0');
+}
+
+function startHeroBeatAnimation() {
+  heroVibeTitle.classList.add('playing');
+  if (!analyserNode || heroAnimationFrame) return;
+
+  const spectrum = new Uint8Array(analyserNode.frequencyBinCount);
+  let smoothed = 0;
+
+  const tick = () => {
+    analyserNode.getByteFrequencyData(spectrum);
+    const energy = spectrum.reduce((sum, v) => sum + v, 0) / (spectrum.length * 255);
+    smoothed = smoothed * 0.84 + energy * 0.16;
+    const intensity = Math.min(1, smoothed * 1.85);
+    heroVibeTitle.style.setProperty('--beat-intensity', intensity.toFixed(3));
+
+    if (!audio.paused) {
+      heroAnimationFrame = requestAnimationFrame(tick);
+    } else {
+      stopHeroBeatAnimation();
+    }
+  };
+
+  heroAnimationFrame = requestAnimationFrame(tick);
+}
+
+function setPlaybackVisualState(isPlaying) {
+  setPlayButtonState(isPlaying);
+  setFogPlaying(isPlaying);
+  if (isPlaying) startHeroBeatAnimation();
+  else stopHeroBeatAnimation();
+}
+
+async function togglePlayback() {
+  if (currentIndex === -1 && tracks.length) {
+    await playTrack(0);
+    return;
+  }
+
+  if (!audio.src) return;
+
+  if (audio.paused) {
+    if (audioCtx?.state === 'suspended') await audioCtx.resume();
+    await audio.play();
+    setPlaybackVisualState(true);
+  } else {
+    audio.pause();
+    setPlaybackVisualState(false);
+  }
 }
 
 function renderTracks() {
@@ -161,11 +224,15 @@ async function ensureAudioGraph() {
   vocalFilter.frequency.value = 2800;
   vocalFilter.Q.value = 1.5;
 
+  analyserNode = audioCtx.createAnalyser();
+  analyserNode.fftSize = 128;
+
   sourceNode.connect(bassFilter);
   bassFilter.connect(midFilter);
   midFilter.connect(trebleFilter);
   trebleFilter.connect(vocalFilter);
-  vocalFilter.connect(audioCtx.destination);
+  vocalFilter.connect(analyserNode);
+  analyserNode.connect(audioCtx.destination);
 }
 
 async function playTrack(index) {
@@ -182,9 +249,8 @@ async function playTrack(index) {
   nowSub.textContent = track.description || track.name;
   miniTitle.textContent = displayTitle;
   miniSub.textContent = track.name;
-  setPlayButtonState(true);
   setFavoriteButtonState(track.favorite);
-  setFogPlaying(true);
+  setPlaybackVisualState(true);
   renderTracks();
 }
 
@@ -198,8 +264,7 @@ async function playYoutubeResult(item) {
   nowSub.textContent = `${item.author || 'YouTube'} ${item.duration ? `• ${item.duration}` : ''}`;
   miniTitle.textContent = item.title;
   miniSub.textContent = 'YouTube stream';
-  setPlayButtonState(true);
-  setFogPlaying(true);
+  setPlaybackVisualState(true);
 }
 
 function switchTab(tab) {
@@ -207,19 +272,8 @@ function switchTab(tab) {
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
 }
 
-playBtn.addEventListener('click', async () => {
-  if (currentIndex === -1 && tracks.length) return playTrack(0);
-  if (audio.paused) {
-    if (audioCtx?.state === 'suspended') await audioCtx.resume();
-    await audio.play();
-    setPlayButtonState(true);
-    setFogPlaying(true);
-  } else {
-    audio.pause();
-    setPlayButtonState(false);
-    setFogPlaying(false);
-  }
-});
+playBtn.addEventListener('click', togglePlayback);
+heroPlayBtn.addEventListener('click', togglePlayback);
 
 favToggleBtn.addEventListener('click', async () => {
   const track = activeTrack();
@@ -323,8 +377,8 @@ audio.addEventListener('ended', () => {
   playTrack((currentIndex + 1) % tracks.length);
 });
 
-audio.addEventListener('pause', () => setFogPlaying(false));
-audio.addEventListener('play', () => setFogPlaying(true));
+audio.addEventListener('pause', () => setPlaybackVisualState(false));
+audio.addEventListener('play', () => setPlaybackVisualState(true));
 
 const eqModal = document.getElementById('eqModal');
 function openEq() {
@@ -441,6 +495,6 @@ api.getMusicDir().then((dir) => {
 refreshTracks();
 switchTab('home');
 setEqValues(presets.flat);
-setPlayButtonState(false);
+setPlaybackVisualState(false);
 setFavoriteButtonState(false);
 refreshIcons();
