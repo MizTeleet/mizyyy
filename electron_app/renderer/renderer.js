@@ -276,6 +276,12 @@ function switchTab(tab) {
 
 playBtn.addEventListener('click', togglePlayback);
 heroPlayBtn.addEventListener('click', togglePlayback);
+heroVibeTitle.addEventListener('click', togglePlayback);
+heroVibeTitle.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  togglePlayback();
+});
 
 favToggleBtn.addEventListener('click', async () => {
   const track = activeTrack();
