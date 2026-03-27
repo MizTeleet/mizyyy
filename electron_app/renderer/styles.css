@@ -35,7 +35,10 @@ body.modal-open { overflow: hidden; }
 
 .sidebar { width: 58px; border-radius: 18px; padding: 8px 0; display: flex; flex-direction: column; align-items: center; gap: 12px; }
 .logo { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; font-weight: 800; color: #dfe8ff; background: linear-gradient(160deg, #7a95f9, #6f49d8); }
-.profile-btn { border: 0; cursor: pointer; }
+.profile-btn { border: 0; cursor: pointer; overflow: hidden; transition: transform .18s ease, filter .18s ease; position: relative; }
+.profile-btn:hover { transform: scale(1.06); filter: brightness(1.08); }
+.sidebar-avatar { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 12px; object-fit: cover; display: none; }
+#sidebarAvatarFallback { display: inline-block; }
 .nav-btn { width: 34px; height: 34px; border-radius: 10px; border: 0; color: #d3dff7; background: rgba(255,255,255,.04); cursor: pointer; transition: transform .22s ease, background .22s ease, color .22s ease; }
 .nav-btn:hover { transform: translateY(-1px) scale(1.07); background: rgba(255,255,255,.12); }
 .nav-btn.active { color: #ffd348; background: rgba(255, 211, 72, 0.14); }
@@ -65,7 +68,7 @@ body.modal-open { overflow: hidden; }
 .hero { position: relative; border-radius: 22px; overflow: hidden; padding: 12px; display: flex; flex-direction: column; justify-content: space-between; background: linear-gradient(90deg, rgba(7, 21, 48, 0.96), rgba(4, 11, 28, 0.92)); }
 .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 20% 95%, rgba(36, 110, 255, 0.15), transparent 45%); pointer-events: none; }
 .hero-current { position: relative; z-index: 2; width: 320px; border-radius: 14px; padding: 10px; display: flex; gap: 10px; align-items: center; }
-.hero-cover { width: 42px; height: 42px; border-radius: 12px; background: linear-gradient(170deg, #6f8cff, #8c6eff); display: grid; place-items: center; font-weight: 700; }
+.hero-cover { width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(170deg, #6f8cff, #8c6eff); display: grid; place-items: center; font-weight: 700; object-fit: cover; }
 .hero-current h2 { margin: 0; font-size: 1.06rem; }
 .hero-current p { margin: 2px 0 0; color: var(--muted); font-size: .95rem; }
 .hero-center {

@@ -20,6 +20,9 @@ const heroPlayBtn = document.getElementById('heroPlayBtn');
 const heroVibeTitle = document.getElementById('heroVibeTitle');
 const forYouListEl = document.getElementById('forYouList');
 const profileBtn = document.getElementById('profileBtn');
+const sidebarAvatarImg = document.getElementById('sidebarAvatarImg');
+const sidebarAvatarFallback = document.getElementById('sidebarAvatarFallback');
+const heroProfileAvatar = document.getElementById('heroProfileAvatar');
 const authModal = document.getElementById('authModal');
 const authBackdrop = document.getElementById('authBackdrop');
 const authCloseBtn = document.getElementById('authCloseBtn');
@@ -68,6 +71,8 @@ const MAX_QUERY_COUNT = 5;
 const CACHE_TTL_MS = 1000 * 60 * 30;
 const STOPWORDS = new Set(['official', 'video', 'audio', 'music', 'feat', 'ft', 'prod', 'remix', 'edit', 'live', 'version', 'clip', 'lyrics', 'and', 'the']);
 const BLOCKED_TITLE_TERMS = ['playlist', '1 hour', 'mix', 'full album', 'live', 'remix', 'slowed', 'nightcore', 'bass boosted'];
+const USER_NICKNAME_KEY = 'userNickname';
+const USER_AVATAR_KEY = 'userAvatar';
 
 let behaviorStore = loadBehaviorStore();
 let recommendationCache = loadRecommendationCache();
@@ -85,28 +90,72 @@ function setAuthStatus(message) {
   authStatusEl.textContent = message;
 }
 
+function getStoredNickname() {
+  return localStorage.getItem(USER_NICKNAME_KEY) || '';
+}
+
+function getStoredAvatar() {
+  return localStorage.getItem(USER_AVATAR_KEY) || '';
+}
+
+function setStoredNickname(nickname) {
+  const clean = (nickname || '').trim();
+  if (clean) localStorage.setItem(USER_NICKNAME_KEY, clean);
+  else localStorage.removeItem(USER_NICKNAME_KEY);
+}
+
+function setStoredAvatar(avatarBase64) {
+  if (avatarBase64) localStorage.setItem(USER_AVATAR_KEY, avatarBase64);
+  else localStorage.removeItem(USER_AVATAR_KEY);
+}
+
+function applyProfileVisuals() {
+  const nickname = getStoredNickname() || currentUserDoc?.nickname || 'Твой вайб';
+  const avatar = getStoredAvatar();
+  nowTitle.textContent = nickname;
+  nowSub.textContent = 'Слушай музыку в LeetMusic';
+  authNameInput.value = nickname;
+  profileNicknameInput.value = nickname;
+
+  if (avatar) {
+    sidebarAvatarImg.src = avatar;
+    sidebarAvatarImg.style.display = 'block';
+    sidebarAvatarFallback.style.display = 'none';
+    heroProfileAvatar.src = avatar;
+    userAvatarEl.src = avatar;
+  } else {
+    sidebarAvatarImg.style.display = 'none';
+    sidebarAvatarFallback.style.display = 'inline-block';
+    heroProfileAvatar.removeAttribute('src');
+    userAvatarEl.removeAttribute('src');
+  }
+}
+
 function updateAuthUi(profile) {
   const isLoggedIn = Boolean(currentUser);
   authGuestView.hidden = isLoggedIn;
   authUserView.hidden = !isLoggedIn;
 
   if (!isLoggedIn) {
-    authNameInput.value = '';
+    authNameInput.value = getStoredNickname() || '';
     authEmailInput.value = '';
     authPasswordInput.value = '';
-    profileNicknameInput.value = '';
+    profileNicknameInput.value = getStoredNickname() || '';
     profileEmailInput.value = '';
-    userAvatarEl.src = '';
+    applyProfileVisuals();
     setAuthStatus('Guest mode');
     return;
   }
 
-  const nickname = profile?.nickname || currentUser?.displayName || '';
+  const nickname = getStoredNickname() || profile?.nickname || currentUser?.displayName || '';
   const email = profile?.email || currentUser?.email || '';
-  const avatarUrl = profile?.avatarUrl || currentUser?.photoURL || '';
+  const avatarUrl = getStoredAvatar() || profile?.avatarUrl || '';
+  setStoredNickname(nickname);
+  if (avatarUrl) setStoredAvatar(avatarUrl);
   profileNicknameInput.value = nickname;
   profileEmailInput.value = email;
   userAvatarEl.src = avatarUrl;
+  applyProfileVisuals();
   setAuthStatus(`Signed in as ${nickname || email || 'user'}`);
 }
 
@@ -651,8 +700,6 @@ async function playTrack(index) {
   fadeInCurrentTrack();
 
   const displayTitle = track.customTitle || track.title;
-  nowTitle.textContent = displayTitle;
-  nowSub.textContent = track.description || track.name;
   miniTitle.textContent = displayTitle;
   miniSub.textContent = track.name;
   setFavoriteButtonState(track.favorite);
@@ -679,8 +726,6 @@ async function playYoutubeResult(item) {
   audio.src = streamUrl;
   await audio.play();
   fadeInCurrentTrack();
-  nowTitle.textContent = item.title;
-  nowSub.textContent = `${item.author || 'Online'} ${item.duration ? `• ${item.duration}` : ''}`;
   miniTitle.textContent = item.title;
   miniSub.textContent = 'Online stream';
   setPlaybackVisualState(true);
@@ -983,6 +1028,8 @@ function initializeAuthSystem() {
         authPasswordInput.value,
         authNameInput.value.trim(),
       );
+      setStoredNickname(authNameInput.value.trim());
+      applyProfileVisuals();
       authPasswordInput.value = '';
       setAuthStatus('Registration successful');
     } catch (error) {
@@ -995,6 +1042,7 @@ function initializeAuthSystem() {
     try {
       await firebaseClient.login(authEmailInput.value.trim(), authPasswordInput.value);
       authPasswordInput.value = '';
+      applyProfileVisuals();
       setAuthStatus('Login successful');
     } catch (error) {
       console.error(error);
@@ -1018,11 +1066,14 @@ function initializeAuthSystem() {
     const file = avatarInput.files?.[0];
     if (!file) return;
     try {
-      const avatarUrl = await firebaseClient.uploadAvatar(file);
-      userAvatarEl.src = avatarUrl;
-      if (currentUser) {
-        currentUserDoc = { ...(currentUserDoc || {}), avatarUrl };
-      }
+      const avatarBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      setStoredAvatar(avatarBase64);
+      applyProfileVisuals();
       setAuthStatus('Avatar updated');
     } catch (error) {
       console.error(error);
@@ -1034,6 +1085,7 @@ function initializeAuthSystem() {
     if (!currentUser) return;
     try {
       const nickname = profileNicknameInput.value.trim();
+      setStoredNickname(nickname);
       await firebaseClient.updateUserProfile(currentUser.uid, { nickname });
       currentUserDoc = { ...(currentUserDoc || {}), nickname, email: currentUser.email || '' };
       updateAuthUi(currentUserDoc);
@@ -1050,6 +1102,7 @@ api.getMusicDir().then((dir) => {
   renderTracks();
 }).catch(() => {});
 
+applyProfileVisuals();
 initializeAuthSystem();
 refreshTracks();
 switchTab('home');

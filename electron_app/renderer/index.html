@@ -9,7 +9,10 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar glass">
-        <button id="profileBtn" class="logo profile-btn" title="Profile">LM</button>
+        <button id="profileBtn" class="logo profile-btn" title="Profile">
+          <img id="sidebarAvatarImg" class="sidebar-avatar" alt="avatar" />
+          <span id="sidebarAvatarFallback">LM</span>
+        </button>
         <button class="nav-btn active" data-tab="home" title="Home">⭐</button>
         <button class="nav-btn" data-tab="for-you" title="For You">✨</button>
         <button class="nav-btn" data-tab="music" title="Music">🎵</button>
@@ -22,7 +25,7 @@
             <section class="hero glass" id="hero">
               <div class="fog-overlay" id="fogOverlay"></div>
               <article class="hero-current glass-soft">
-                <div class="hero-cover">LM</div>
+                <img id="heroProfileAvatar" class="hero-cover" alt="avatar" />
                 <div>
                   <h2 id="nowTitle">Твой вайб</h2>
                   <p id="nowSub">Слушай музыку в LeetMusic</p>
@@ -180,7 +183,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
     <script src="firebase.js"></script>
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="renderer.js"></script>

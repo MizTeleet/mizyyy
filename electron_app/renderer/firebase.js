@@ -12,7 +12,6 @@
 
   const auth = firebase.auth();
   const db = firebase.firestore();
-  const storage = firebase.storage();
 
   function userRef(uid) {
     return db.collection('users').doc(uid);
@@ -88,17 +87,6 @@
     await updateUserProfile(uid, { history: deduped });
   }
 
-  async function uploadAvatar(file) {
-    const user = auth.currentUser;
-    if (!user || !file) throw new Error('User not authenticated');
-    const ref = storage.ref().child(`avatars/${user.uid}/${Date.now()}_${file.name}`);
-    await ref.put(file);
-    const avatarUrl = await ref.getDownloadURL();
-    await user.updateProfile({ photoURL: avatarUrl });
-    await updateUserProfile(user.uid, { avatarUrl });
-    return avatarUrl;
-  }
-
   window.firebaseClient = {
     auth,
     register,
@@ -110,6 +98,5 @@
     updateUserProfile,
     setFavorites,
     addHistoryItem,
-    uploadAvatar,
   };
 })();
