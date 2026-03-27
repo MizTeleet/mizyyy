@@ -16,37 +16,37 @@
       </aside>
 
       <main class="content">
-        <section class="hero glass" id="hero">
-          <div class="fog-overlay" id="fogOverlay"></div>
-          <article class="hero-current glass-soft">
-            <div class="hero-cover">LM</div>
-            <div>
-              <h2 id="nowTitle">Твой вайб</h2>
-              <p id="nowSub">Слушай музыку в LeetMusic</p>
-            </div>
-            <button id="openEqBtn" class="ghost-btn">Эквалайзер</button>
-          </article>
-
-          <div class="hero-center">
-            <div class="hero-title-row">
-              <button id="heroPlayBtn" class="hero-play-inline" aria-label="Hero play">
-                <i data-lucide="play"></i>
-              </button>
-              <h1 id="heroVibeTitle" role="button" tabindex="0" aria-label="Toggle play">Твой вайб</h1>
-            </div>
-            <p>Тут можешь послушать музыку</p>
-          </div>
-        </section>
-
         <section class="tabs">
           <div class="tab-panel active" id="tab-home">
+            <section class="hero glass" id="hero">
+              <div class="fog-overlay" id="fogOverlay"></div>
+              <article class="hero-current glass-soft">
+                <div class="hero-cover">LM</div>
+                <div>
+                  <h2 id="nowTitle">Твой вайб</h2>
+                  <p id="nowSub">Слушай музыку в LeetMusic</p>
+                </div>
+                <button id="openEqBtn" class="ghost-btn">Эквалайзер</button>
+              </article>
+
+              <div class="hero-center">
+                <div class="hero-title-row">
+                  <button id="heroPlayBtn" class="hero-play-inline" aria-label="Hero play">
+                    <i data-lucide="play"></i>
+                  </button>
+                  <h1 id="heroVibeTitle" role="button" tabindex="0" aria-label="Toggle play">Твой вайб</h1>
+                </div>
+                <p>Тут можешь послушать музыку</p>
+              </div>
+            </section>
+
             <section class="search glass">
-              <input id="ytSearchInput" placeholder="Поиск музыки на YouTube..." />
+              <input id="ytSearchInput" placeholder="Music search..." />
               <button id="ytSearchBtn">Search</button>
             </section>
 
             <section class="yt-results panel glass" id="ytResultsWrap">
-              <h3>YouTube результаты</h3>
+              <h3>Online results</h3>
               <ul id="ytResults" class="yt-list"></ul>
             </section>
           </div>

@@ -158,7 +158,7 @@ function renderFavorites() {
   const localFavTracks = tracks.filter((t) => t.favorite);
   const allFav = [
     ...localFavTracks.map((t) => ({ id: t.id, title: t.customTitle || t.title, isYoutube: false })),
-    ...ytFavorites.map((t) => ({ id: `yt:${t.id}`, title: `YT: ${t.title}`, isYoutube: true })),
+    ...ytFavorites.map((t) => ({ id: `yt:${t.id}`, title: `Online: ${t.title}`, isYoutube: true })),
   ];
 
   if (!allFav.length) {
@@ -263,9 +263,9 @@ async function playYoutubeResult(item) {
   audio.src = streamUrl;
   await audio.play();
   nowTitle.textContent = item.title;
-  nowSub.textContent = `${item.author || 'YouTube'} ${item.duration ? `• ${item.duration}` : ''}`;
+  nowSub.textContent = `${item.author || 'Online'} ${item.duration ? `• ${item.duration}` : ''}`;
   miniTitle.textContent = item.title;
-  miniSub.textContent = 'YouTube stream';
+  miniSub.textContent = 'Online stream';
   setPlaybackVisualState(true);
 }
 
