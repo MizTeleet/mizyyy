@@ -17,6 +17,7 @@ const favToggleBtn = document.getElementById('favToggleBtn');
 const ytResultsEl = document.getElementById('ytResults');
 const heroPlayBtn = document.getElementById('heroPlayBtn');
 const heroVibeTitle = document.getElementById('heroVibeTitle');
+const forYouGroupsEl = document.getElementById('forYouGroups');
 
 const favTitleInput = document.getElementById('favTitleInput');
 const favDescInput = document.getElementById('favDescInput');
@@ -39,9 +40,247 @@ let analyserNode;
 let masterGainNode;
 let heroAnimationFrame = null;
 
+const BEHAVIOR_STORAGE_KEY = 'leetmusic_behavior_v1';
+const RECOMMEND_CACHE_KEY = 'leetmusic_reco_cache_v1';
+const MAX_RECENT = 30;
+const MAX_GROUPS = 3;
+const MAX_TRACKS_PER_GROUP = 5;
+const CACHE_TTL_MS = 1000 * 60 * 30;
+const STOPWORDS = new Set(['official', 'video', 'audio', 'music', 'feat', 'ft', 'prod', 'remix', 'edit', 'live', 'version', 'clip', 'lyrics', 'and', 'the']);
+
+let behaviorStore = loadBehaviorStore();
+let recommendationCache = loadRecommendationCache();
+let forYouDirty = true;
+let forYouLoading = false;
+
 
 function refreshIcons() {
   if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function safeJsonParse(raw, fallback) {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return fallback;
+  }
+}
+
+function loadBehaviorStore() {
+  const parsed = safeJsonParse(localStorage.getItem(BEHAVIOR_STORAGE_KEY) || '{}', {});
+  return {
+    tracks: parsed.tracks || {},
+    recent: Array.isArray(parsed.recent) ? parsed.recent.slice(0, MAX_RECENT) : [],
+  };
+}
+
+function persistBehaviorStore() {
+  localStorage.setItem(BEHAVIOR_STORAGE_KEY, JSON.stringify(behaviorStore));
+}
+
+function loadRecommendationCache() {
+  const parsed = safeJsonParse(localStorage.getItem(RECOMMEND_CACHE_KEY) || '{}', {});
+  return parsed && typeof parsed === 'object' ? parsed : {};
+}
+
+function persistRecommendationCache() {
+  localStorage.setItem(RECOMMEND_CACHE_KEY, JSON.stringify(recommendationCache));
+}
+
+function normalizeSpaces(value) {
+  return (value || '').replace(/\s+/g, ' ').trim();
+}
+
+function parseArtistFromTitle(title, fallback = '') {
+  const cleaned = normalizeSpaces(title);
+  if (!cleaned) return fallback;
+  const parts = cleaned.split(/\s[-–—]\s/);
+  if (parts.length > 1) return parts[0].trim();
+  return fallback || '';
+}
+
+function extractKeywords(text) {
+  return normalizeSpaces(text)
+    .toLowerCase()
+    .replace(/[^a-zа-яё0-9\s]/gi, ' ')
+    .split(/\s+/)
+    .filter((word) => word.length >= 4 && !STOPWORDS.has(word))
+    .slice(0, 6);
+}
+
+function updateBehaviorEntry({ title, artist = '', liked = false, played = false }) {
+  const normalizedTitle = normalizeSpaces(title);
+  if (!normalizedTitle) return;
+  const key = normalizedTitle.toLowerCase();
+  const now = Date.now();
+  const existing = behaviorStore.tracks[key] || {
+    title: normalizedTitle,
+    artist: normalizeSpaces(artist),
+    playCount: 0,
+    liked: false,
+    lastPlayed: 0,
+  };
+
+  existing.title = normalizedTitle;
+  if (!existing.artist) existing.artist = normalizeSpaces(artist);
+  if (played) {
+    existing.playCount += 1;
+    existing.lastPlayed = now;
+    behaviorStore.recent = [key, ...behaviorStore.recent.filter((id) => id !== key)].slice(0, MAX_RECENT);
+  }
+  if (liked) existing.liked = true;
+  behaviorStore.tracks[key] = existing;
+  persistBehaviorStore();
+  forYouDirty = true;
+}
+
+function setTrackLikedSignal(track, liked) {
+  if (!track) return;
+  updateBehaviorEntry({
+    title: track.customTitle || track.title || track.name,
+    artist: parseArtistFromTitle(track.customTitle || track.title || track.name),
+    liked,
+    played: false,
+  });
+  const key = normalizeSpaces(track.customTitle || track.title || track.name).toLowerCase();
+  if (behaviorStore.tracks[key]) {
+    behaviorStore.tracks[key].liked = Boolean(liked);
+    persistBehaviorStore();
+    forYouDirty = true;
+  }
+}
+
+function computeSignalScore(entry) {
+  const recencyDays = (Date.now() - (entry.lastPlayed || 0)) / (1000 * 60 * 60 * 24);
+  const recentBoost = recencyDays <= 7 ? 3 : recencyDays <= 30 ? 1.5 : 0;
+  return (entry.liked ? 10 : 0) + Math.min(5, entry.playCount) + recentBoost;
+}
+
+function buildRecommendationQueries() {
+  const entries = Object.values(behaviorStore.tracks);
+  if (!entries.length) return [];
+
+  const artistScores = new Map();
+  const keywordScores = new Map();
+
+  entries.forEach((entry) => {
+    const score = computeSignalScore(entry);
+    const artist = normalizeSpaces(entry.artist || parseArtistFromTitle(entry.title));
+    if (artist) artistScores.set(artist, (artistScores.get(artist) || 0) + score);
+    extractKeywords(entry.title).forEach((keyword) => {
+      keywordScores.set(keyword, (keywordScores.get(keyword) || 0) + score * 0.7);
+    });
+  });
+
+  const topArtists = [...artistScores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([artist]) => artist);
+  const topKeywords = [...keywordScores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([kw]) => kw);
+
+  const queries = [];
+  topArtists.forEach((artist) => {
+    queries.push({ label: `${artist} mix`, query: `${artist} mix` });
+    queries.push({ label: `${artist} playlist`, query: `${artist} similar artists playlist` });
+  });
+  topKeywords.forEach((keyword) => {
+    const label = `${keyword[0].toUpperCase()}${keyword.slice(1)} подборка`;
+    queries.push({ label, query: `${keyword} playlist` });
+    queries.push({ label: `${keyword} vibes`, query: `${keyword} mix 2024` });
+  });
+
+  return queries.slice(0, MAX_GROUPS * 2);
+}
+
+async function searchWithCache(query) {
+  const cacheItem = recommendationCache[query];
+  if (cacheItem && Date.now() - cacheItem.savedAt < CACHE_TTL_MS && Array.isArray(cacheItem.items)) {
+    return cacheItem.items;
+  }
+
+  const items = (await api.ytSearch(query)).slice(0, MAX_TRACKS_PER_GROUP);
+  recommendationCache[query] = { savedAt: Date.now(), items };
+  persistRecommendationCache();
+  return items;
+}
+
+function createForYouTrackItem(item) {
+  const li = document.createElement('li');
+  li.className = 'yt-item';
+  const info = document.createElement('div');
+  info.innerHTML = `<strong>${item.title}</strong><br/><small>${item.duration || '—'}</small>`;
+
+  const actions = document.createElement('div');
+  actions.className = 'yt-actions';
+
+  const play = document.createElement('button');
+  play.textContent = 'Play';
+  play.addEventListener('click', () => playYoutubeResult(item));
+
+  const fav = document.createElement('button');
+  fav.textContent = 'Add to favorites';
+  fav.addEventListener('click', () => {
+    if (!ytFavorites.some((x) => x.id === item.id)) ytFavorites.push({ ...item, description: '' });
+    updateBehaviorEntry({
+      title: item.title,
+      artist: item.author || parseArtistFromTitle(item.title),
+      liked: true,
+      played: false,
+    });
+    renderFavorites();
+  });
+
+  actions.append(play, fav);
+  li.append(info, actions);
+  return li;
+}
+
+async function renderForYou() {
+  if (!forYouGroupsEl) return;
+  if (forYouLoading) return;
+  if (!forYouDirty && forYouGroupsEl.childElementCount > 0) return;
+  forYouLoading = true;
+
+  forYouGroupsEl.innerHTML = '<div class="yt-item">Подбираем рекомендации…</div>';
+  const queries = buildRecommendationQueries();
+  if (!queries.length) {
+    forYouGroupsEl.innerHTML = '<div class="yt-item">Слушай треки и добавляй в избранное — тут появятся персональные рекомендации.</div>';
+    forYouLoading = false;
+    forYouDirty = false;
+    return;
+  }
+
+  const seenIds = new Set();
+  const groups = [];
+  for (const candidate of queries) {
+    const items = await searchWithCache(candidate.query);
+    const deduped = items.filter((item) => {
+      if (seenIds.has(item.id)) return false;
+      seenIds.add(item.id);
+      return true;
+    }).slice(0, MAX_TRACKS_PER_GROUP);
+    if (!deduped.length) continue;
+    groups.push({ label: candidate.label, items: deduped });
+    if (groups.length >= MAX_GROUPS) break;
+  }
+
+  forYouGroupsEl.innerHTML = '';
+  if (!groups.length) {
+    forYouGroupsEl.innerHTML = '<div class="yt-item">Недостаточно данных для рекомендаций. Попробуй послушать ещё несколько треков.</div>';
+    forYouLoading = false;
+    forYouDirty = false;
+    return;
+  }
+
+  groups.forEach((group) => {
+    const block = document.createElement('section');
+    block.className = 'for-you-group';
+    block.innerHTML = `<h4>${group.label}</h4>`;
+    const list = document.createElement('ul');
+    group.items.forEach((item) => list.append(createForYouTrackItem(item)));
+    block.append(list);
+    forYouGroupsEl.append(block);
+  });
+
+  forYouLoading = false;
+  forYouDirty = false;
 }
 
 function setPlayButtonState(isPlaying) {
@@ -267,6 +506,12 @@ async function playTrack(index) {
   miniSub.textContent = track.name;
   setFavoriteButtonState(track.favorite);
   setPlaybackVisualState(true);
+  updateBehaviorEntry({
+    title: displayTitle,
+    artist: parseArtistFromTitle(displayTitle),
+    liked: Boolean(track.favorite),
+    played: true,
+  });
   renderTracks();
 }
 
@@ -282,11 +527,17 @@ async function playYoutubeResult(item) {
   miniTitle.textContent = item.title;
   miniSub.textContent = 'Online stream';
   setPlaybackVisualState(true);
+  updateBehaviorEntry({
+    title: item.title,
+    artist: item.author || parseArtistFromTitle(item.title),
+    played: true,
+  });
 }
 
 function switchTab(tab) {
   document.querySelectorAll('.nav-btn[data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   document.querySelectorAll('.tab-panel').forEach((p) => p.classList.toggle('active', p.id === `tab-${tab}`));
+  if (tab === 'for-you') renderForYou();
 }
 
 playBtn.addEventListener('click', togglePlayback);
@@ -303,6 +554,7 @@ favToggleBtn.addEventListener('click', async () => {
   if (!track) return;
   track.favorite = !track.favorite;
   await api.saveTrackMeta(track.id, { favorite: track.favorite });
+  setTrackLikedSignal(track, track.favorite);
   setFavoriteButtonState(track.favorite);
   renderTracks();
 });
@@ -360,6 +612,12 @@ document.getElementById('ytSearchBtn').addEventListener('click', async () => {
     fav.textContent = 'Add to favorites';
     fav.addEventListener('click', () => {
       if (!ytFavorites.some((x) => x.id === item.id)) ytFavorites.push({ ...item, description: '' });
+      updateBehaviorEntry({
+        title: item.title,
+        artist: item.author || parseArtistFromTitle(item.title),
+        liked: true,
+        played: false,
+      });
       renderFavorites();
       switchTab('favorites');
     });
@@ -485,6 +743,8 @@ document.getElementById('saveFavBtn').addEventListener('click', async () => {
     favorite: true,
   });
   await refreshTracks();
+  const updatedTrack = tracks.find((t) => t.id === selectedFavId);
+  if (updatedTrack) setTrackLikedSignal(updatedTrack, true);
   selectFavorite(selectedFavId);
 });
 

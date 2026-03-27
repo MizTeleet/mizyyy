@@ -11,6 +11,7 @@
       <aside class="sidebar glass">
         <div class="logo" title="LeetMusic">LM</div>
         <button class="nav-btn active" data-tab="home" title="Home">⭐</button>
+        <button class="nav-btn" data-tab="for-you" title="For You">✨</button>
         <button class="nav-btn" data-tab="music" title="Music">🎵</button>
         <button class="nav-btn" data-tab="favorites" title="Favorites">❤</button>
       </aside>
@@ -59,6 +60,14 @@
               </div>
               <h3>Локальная коллекция</h3>
               <ul id="trackList" class="track-list"></ul>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-for-you">
+            <div class="panel glass">
+              <h2>Recommended for you</h2>
+              <p class="for-you-subtle">Based on your listening</p>
+              <div id="forYouGroups" class="for-you-groups"></div>
             </div>
           </div>
 
