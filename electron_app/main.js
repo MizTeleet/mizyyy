@@ -160,10 +160,10 @@ async function exportTrackCard(win, payload) {
 
 async function searchYouTube(query) {
   if (!query || !query.trim()) return [];
-  const results = await ytsr(query, { limit: 20 });
+  const results = await ytsr(query, { limit: 60 });
   return results.items
     .filter((item) => item.type === 'video')
-    .slice(0, 5)
+    .slice(0, 30)
     .map((v) => ({
       id: v.id,
       title: v.title,

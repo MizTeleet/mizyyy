@@ -105,10 +105,12 @@
             <button id="prevBtn" aria-label="Предыдущий"><i data-lucide="skip-back"></i></button>
             <button id="playBtn" class="accent" aria-label="Play"><i data-lucide="play"></i></button>
             <button id="nextBtn" aria-label="Следующий"><i data-lucide="skip-forward"></i></button>
+            <button id="autoPlayNextBtn" title="Auto Play Next" aria-label="Auto Play Next"><i data-lucide="list-end"></i></button>
           </div>
           <div class="progress-wrap">
             <input id="progress" type="range" min="0" max="100" value="0" />
             <span id="time">0:00 / 0:00</span>
+            <span id="playStatus" class="play-status"></span>
           </div>
           <div class="volume-wrap">
             <span>Громк.</span>
