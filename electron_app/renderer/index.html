@@ -17,6 +17,23 @@
       </aside>
 
       <main class="content">
+        <section class="auth-bar glass">
+          <img id="userAvatar" class="user-avatar" alt="avatar" />
+          <div class="auth-fields">
+            <input id="authName" placeholder="Name" />
+            <input id="authEmail" type="email" placeholder="Email" />
+            <input id="authPassword" type="password" placeholder="Password" />
+          </div>
+          <div class="auth-actions">
+            <button id="registerBtn">Register</button>
+            <button id="loginBtn">Login</button>
+            <button id="logoutBtn" class="ghost-btn">Logout</button>
+            <button id="uploadAvatarBtn" class="ghost-btn">Avatar</button>
+            <input id="avatarInput" type="file" accept="image/*" hidden />
+          </div>
+          <div id="authStatus" class="auth-status">Guest mode</div>
+        </section>
+
         <section class="tabs">
           <div class="tab-panel active" id="tab-home">
             <section class="hero glass" id="hero">
@@ -144,6 +161,11 @@
     </div>
 
     <audio id="audio"></audio>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+    <script src="firebase.js"></script>
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
     <script src="renderer.js"></script>
   </body>

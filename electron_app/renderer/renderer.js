@@ -1,4 +1,5 @@
 const api = window.leetMusicApi;
+const firebaseClient = window.firebaseClient;
 const audio = document.getElementById('audio');
 
 const trackListEl = document.getElementById('trackList');
@@ -18,6 +19,16 @@ const ytResultsEl = document.getElementById('ytResults');
 const heroPlayBtn = document.getElementById('heroPlayBtn');
 const heroVibeTitle = document.getElementById('heroVibeTitle');
 const forYouListEl = document.getElementById('forYouList');
+const authNameInput = document.getElementById('authName');
+const authEmailInput = document.getElementById('authEmail');
+const authPasswordInput = document.getElementById('authPassword');
+const authStatusEl = document.getElementById('authStatus');
+const userAvatarEl = document.getElementById('userAvatar');
+const registerBtn = document.getElementById('registerBtn');
+const loginBtn = document.getElementById('loginBtn');
+const logoutBtn = document.getElementById('logoutBtn');
+const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
+const avatarInput = document.getElementById('avatarInput');
 
 const favTitleInput = document.getElementById('favTitleInput');
 const favDescInput = document.getElementById('favDescInput');
@@ -53,10 +64,42 @@ let behaviorStore = loadBehaviorStore();
 let recommendationCache = loadRecommendationCache();
 let forYouDirty = true;
 let forYouLoading = false;
+let currentUser = null;
+let userSyncTimer = null;
 
 
 function refreshIcons() {
   if (window.lucide?.createIcons) window.lucide.createIcons();
+}
+
+function setAuthStatus(message) {
+  authStatusEl.textContent = message;
+}
+
+function updateAuthUi(profile) {
+  const displayName = profile?.displayName || currentUser?.displayName || '';
+  const email = profile?.email || currentUser?.email || '';
+  authNameInput.value = displayName;
+  authEmailInput.value = email;
+  userAvatarEl.src = profile?.avatarUrl || currentUser?.photoURL || '';
+  setAuthStatus(currentUser ? `Signed in as ${displayName || email || 'user'}` : 'Guest mode');
+}
+
+function queueUserStateSync() {
+  if (!currentUser || !firebaseClient) return;
+  if (userSyncTimer) clearTimeout(userSyncTimer);
+  userSyncTimer = setTimeout(async () => {
+    try {
+      await firebaseClient.saveUserState({
+        ytFavorites,
+        behaviorStore,
+        localFavorites: tracks.filter((track) => track.favorite).map((track) => track.id),
+      });
+    } catch (error) {
+      console.error(error);
+      setAuthStatus('Failed to sync cloud data');
+    }
+  }, 450);
 }
 
 function safeJsonParse(raw, fallback) {
@@ -133,6 +176,7 @@ function updateBehaviorEntry({ title, artist = '', liked = false, played = false
   behaviorStore.tracks[key] = existing;
   persistBehaviorStore();
   forYouDirty = true;
+  queueUserStateSync();
 }
 
 function setTrackLikedSignal(track, liked) {
@@ -148,6 +192,7 @@ function setTrackLikedSignal(track, liked) {
     behaviorStore.tracks[key].liked = Boolean(liked);
     persistBehaviorStore();
     forYouDirty = true;
+    queueUserStateSync();
   }
 }
 
@@ -251,6 +296,7 @@ function createForYouTrackItem(item, index) {
       played: false,
     });
     renderFavorites();
+    queueUserStateSync();
   });
 
   actions.append(play, fav);
@@ -577,6 +623,7 @@ favToggleBtn.addEventListener('click', async () => {
   setTrackLikedSignal(track, track.favorite);
   setFavoriteButtonState(track.favorite);
   renderTracks();
+  queueUserStateSync();
 });
 
 document.getElementById('prevBtn').addEventListener('click', () => {
@@ -639,6 +686,7 @@ document.getElementById('ytSearchBtn').addEventListener('click', async () => {
         played: false,
       });
       renderFavorites();
+      queueUserStateSync();
       switchTab('favorites');
     });
 
@@ -754,6 +802,7 @@ document.getElementById('saveFavBtn').addEventListener('click', async () => {
     item.description = favDescInput.value.trim();
     renderFavorites();
     selectFavorite(selectedFavId);
+    queueUserStateSync();
     return;
   }
 
@@ -766,6 +815,7 @@ document.getElementById('saveFavBtn').addEventListener('click', async () => {
   const updatedTrack = tracks.find((t) => t.id === selectedFavId);
   if (updatedTrack) setTrackLikedSignal(updatedTrack, true);
   selectFavorite(selectedFavId);
+  queueUserStateSync();
 });
 
 document.getElementById('exportFavBtn').addEventListener('click', async () => {
@@ -795,11 +845,99 @@ document.getElementById('exportFavBtn').addEventListener('click', async () => {
   });
 });
 
+async function handleAuthState(user) {
+  currentUser = user || null;
+  if (!firebaseClient || !currentUser) {
+    updateAuthUi(null);
+    return;
+  }
+
+  try {
+    const profile = await firebaseClient.ensureUserProfile(currentUser);
+    updateAuthUi(profile);
+    const cloudState = await firebaseClient.loadUserState(currentUser.uid);
+    if (cloudState?.behaviorStore) {
+      behaviorStore = cloudState.behaviorStore;
+      persistBehaviorStore();
+    }
+    if (Array.isArray(cloudState?.ytFavorites)) {
+      ytFavorites = cloudState.ytFavorites;
+    }
+    forYouDirty = true;
+    renderFavorites();
+  } catch (error) {
+    console.error(error);
+    setAuthStatus('Unable to load cloud profile');
+  }
+}
+
+function initializeAuthSystem() {
+  if (!firebaseClient) {
+    setAuthStatus('Firebase not initialized');
+    return;
+  }
+
+  firebaseClient.onAuthStateChanged((user) => {
+    handleAuthState(user);
+  });
+
+  registerBtn.addEventListener('click', async () => {
+    try {
+      await firebaseClient.register(
+        authEmailInput.value.trim(),
+        authPasswordInput.value,
+        authNameInput.value.trim(),
+      );
+      authPasswordInput.value = '';
+      setAuthStatus('Registration successful');
+    } catch (error) {
+      console.error(error);
+      setAuthStatus(error.message || 'Registration failed');
+    }
+  });
+
+  loginBtn.addEventListener('click', async () => {
+    try {
+      await firebaseClient.login(authEmailInput.value.trim(), authPasswordInput.value);
+      authPasswordInput.value = '';
+      setAuthStatus('Login successful');
+    } catch (error) {
+      console.error(error);
+      setAuthStatus(error.message || 'Login failed');
+    }
+  });
+
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await firebaseClient.logout();
+      setAuthStatus('Logged out');
+    } catch (error) {
+      console.error(error);
+      setAuthStatus(error.message || 'Logout failed');
+    }
+  });
+
+  uploadAvatarBtn.addEventListener('click', () => avatarInput.click());
+  avatarInput.addEventListener('change', async () => {
+    const file = avatarInput.files?.[0];
+    if (!file) return;
+    try {
+      const avatarUrl = await firebaseClient.uploadAvatar(file);
+      userAvatarEl.src = avatarUrl;
+      setAuthStatus('Avatar updated');
+    } catch (error) {
+      console.error(error);
+      setAuthStatus(error.message || 'Avatar upload failed');
+    }
+  });
+}
+
 api.getMusicDir().then((dir) => {
   musicDirHint = dir;
   renderTracks();
 }).catch(() => {});
 
+initializeAuthSystem();
 refreshTracks();
 switchTab('home');
 setEqValues(presets.flat);
