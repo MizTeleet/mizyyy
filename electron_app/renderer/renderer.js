@@ -19,6 +19,15 @@ const ytResultsEl = document.getElementById('ytResults');
 const heroPlayBtn = document.getElementById('heroPlayBtn');
 const heroVibeTitle = document.getElementById('heroVibeTitle');
 const forYouListEl = document.getElementById('forYouList');
+const profileBtn = document.getElementById('profileBtn');
+const authModal = document.getElementById('authModal');
+const authBackdrop = document.getElementById('authBackdrop');
+const authCloseBtn = document.getElementById('authCloseBtn');
+const authGuestView = document.getElementById('authGuestView');
+const authUserView = document.getElementById('authUserView');
+const profileNicknameInput = document.getElementById('profileNickname');
+const profileEmailInput = document.getElementById('profileEmail');
+const saveProfileBtn = document.getElementById('saveProfileBtn');
 const authNameInput = document.getElementById('authName');
 const authEmailInput = document.getElementById('authEmail');
 const authPasswordInput = document.getElementById('authPassword');
@@ -65,7 +74,7 @@ let recommendationCache = loadRecommendationCache();
 let forYouDirty = true;
 let forYouLoading = false;
 let currentUser = null;
-let userSyncTimer = null;
+let currentUserDoc = null;
 
 
 function refreshIcons() {
@@ -77,29 +86,107 @@ function setAuthStatus(message) {
 }
 
 function updateAuthUi(profile) {
-  const displayName = profile?.displayName || currentUser?.displayName || '';
+  const isLoggedIn = Boolean(currentUser);
+  authGuestView.hidden = isLoggedIn;
+  authUserView.hidden = !isLoggedIn;
+
+  if (!isLoggedIn) {
+    authNameInput.value = '';
+    authEmailInput.value = '';
+    authPasswordInput.value = '';
+    profileNicknameInput.value = '';
+    profileEmailInput.value = '';
+    userAvatarEl.src = '';
+    setAuthStatus('Guest mode');
+    return;
+  }
+
+  const nickname = profile?.nickname || currentUser?.displayName || '';
   const email = profile?.email || currentUser?.email || '';
-  authNameInput.value = displayName;
-  authEmailInput.value = email;
-  userAvatarEl.src = profile?.avatarUrl || currentUser?.photoURL || '';
-  setAuthStatus(currentUser ? `Signed in as ${displayName || email || 'user'}` : 'Guest mode');
+  const avatarUrl = profile?.avatarUrl || currentUser?.photoURL || '';
+  profileNicknameInput.value = nickname;
+  profileEmailInput.value = email;
+  userAvatarEl.src = avatarUrl;
+  setAuthStatus(`Signed in as ${nickname || email || 'user'}`);
 }
 
-function queueUserStateSync() {
-  if (!currentUser || !firebaseClient) return;
-  if (userSyncTimer) clearTimeout(userSyncTimer);
-  userSyncTimer = setTimeout(async () => {
-    try {
-      await firebaseClient.saveUserState({
-        ytFavorites,
-        behaviorStore,
-        localFavorites: tracks.filter((track) => track.favorite).map((track) => track.id),
-      });
-    } catch (error) {
-      console.error(error);
-      setAuthStatus('Failed to sync cloud data');
-    }
-  }, 450);
+function openAuthModal() {
+  authModal.hidden = false;
+  document.body.classList.add('modal-open');
+}
+
+function closeAuthModal() {
+  authModal.hidden = true;
+  document.body.classList.remove('modal-open');
+}
+
+function collectCloudFavorites() {
+  const localFavoriteTracks = tracks
+    .filter((track) => track.favorite)
+    .map((track) => ({
+      id: `local:${track.id}`,
+      title: track.customTitle || track.title,
+      source: 'local',
+      duration: '',
+      url: track.fileUrl,
+    }));
+
+  const onlineFavoriteTracks = ytFavorites.map((item) => ({
+    id: `online:${item.id}`,
+    title: item.title,
+    source: 'online',
+    duration: item.duration || '',
+    url: item.url || '',
+  }));
+
+  return [...localFavoriteTracks, ...onlineFavoriteTracks];
+}
+
+async function syncFavoritesToCloud() {
+  if (!firebaseClient || !currentUser) return;
+  try {
+    await firebaseClient.setFavorites(currentUser.uid, collectCloudFavorites());
+  } catch (error) {
+    console.error(error);
+    setAuthStatus('Failed to sync favorites');
+  }
+}
+
+async function pushHistoryToCloud(entry) {
+  if (!firebaseClient || !currentUser || !entry) return;
+  try {
+    await firebaseClient.addHistoryItem(currentUser.uid, entry);
+  } catch (error) {
+    console.error(error);
+    setAuthStatus('Failed to sync history');
+  }
+}
+
+function makeHistoryEntry({ id, title, artist = '', source = 'local' }) {
+  return { id, title, artist, source, playedAt: Date.now() };
+}
+
+function applyCloudFavoritesToUi() {
+  if (!currentUserDoc || !Array.isArray(currentUserDoc.favorites)) return;
+  ytFavorites = currentUserDoc.favorites
+    .filter((item) => item.source === 'online')
+    .map((item) => ({
+      id: (item.id || '').replace(/^online:/, ''),
+      title: item.title || '',
+      duration: item.duration || '',
+      url: item.url || '',
+      description: '',
+    }));
+  renderFavorites();
+}
+
+function bindAuthModalEvents() {
+  profileBtn.addEventListener('click', openAuthModal);
+  authCloseBtn.addEventListener('click', closeAuthModal);
+  authBackdrop.addEventListener('click', closeAuthModal);
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !authModal.hidden) closeAuthModal();
+  });
 }
 
 function safeJsonParse(raw, fallback) {
@@ -176,7 +263,6 @@ function updateBehaviorEntry({ title, artist = '', liked = false, played = false
   behaviorStore.tracks[key] = existing;
   persistBehaviorStore();
   forYouDirty = true;
-  queueUserStateSync();
 }
 
 function setTrackLikedSignal(track, liked) {
@@ -192,7 +278,6 @@ function setTrackLikedSignal(track, liked) {
     behaviorStore.tracks[key].liked = Boolean(liked);
     persistBehaviorStore();
     forYouDirty = true;
-    queueUserStateSync();
   }
 }
 
@@ -296,7 +381,7 @@ function createForYouTrackItem(item, index) {
       played: false,
     });
     renderFavorites();
-    queueUserStateSync();
+    syncFavoritesToCloud();
   });
 
   actions.append(play, fav);
@@ -578,6 +663,12 @@ async function playTrack(index) {
     liked: Boolean(track.favorite),
     played: true,
   });
+  pushHistoryToCloud(makeHistoryEntry({
+    id: `local:${track.id}`,
+    title: displayTitle,
+    artist: parseArtistFromTitle(displayTitle),
+    source: 'local',
+  }));
   renderTracks();
 }
 
@@ -598,6 +689,12 @@ async function playYoutubeResult(item) {
     artist: item.author || parseArtistFromTitle(item.title),
     played: true,
   });
+  pushHistoryToCloud(makeHistoryEntry({
+    id: `online:${item.id}`,
+    title: item.title,
+    artist: item.author || parseArtistFromTitle(item.title),
+    source: 'online',
+  }));
 }
 
 function switchTab(tab) {
@@ -623,7 +720,7 @@ favToggleBtn.addEventListener('click', async () => {
   setTrackLikedSignal(track, track.favorite);
   setFavoriteButtonState(track.favorite);
   renderTracks();
-  queueUserStateSync();
+  syncFavoritesToCloud();
 });
 
 document.getElementById('prevBtn').addEventListener('click', () => {
@@ -686,7 +783,7 @@ document.getElementById('ytSearchBtn').addEventListener('click', async () => {
         played: false,
       });
       renderFavorites();
-      queueUserStateSync();
+      syncFavoritesToCloud();
       switchTab('favorites');
     });
 
@@ -802,7 +899,7 @@ document.getElementById('saveFavBtn').addEventListener('click', async () => {
     item.description = favDescInput.value.trim();
     renderFavorites();
     selectFavorite(selectedFavId);
-    queueUserStateSync();
+    syncFavoritesToCloud();
     return;
   }
 
@@ -815,7 +912,7 @@ document.getElementById('saveFavBtn').addEventListener('click', async () => {
   const updatedTrack = tracks.find((t) => t.id === selectedFavId);
   if (updatedTrack) setTrackLikedSignal(updatedTrack, true);
   selectFavorite(selectedFavId);
-  queueUserStateSync();
+  syncFavoritesToCloud();
 });
 
 document.getElementById('exportFavBtn').addEventListener('click', async () => {
@@ -848,21 +945,17 @@ document.getElementById('exportFavBtn').addEventListener('click', async () => {
 async function handleAuthState(user) {
   currentUser = user || null;
   if (!firebaseClient || !currentUser) {
+    currentUserDoc = null;
+    ytFavorites = [];
     updateAuthUi(null);
+    renderFavorites();
     return;
   }
 
   try {
-    const profile = await firebaseClient.ensureUserProfile(currentUser);
-    updateAuthUi(profile);
-    const cloudState = await firebaseClient.loadUserState(currentUser.uid);
-    if (cloudState?.behaviorStore) {
-      behaviorStore = cloudState.behaviorStore;
-      persistBehaviorStore();
-    }
-    if (Array.isArray(cloudState?.ytFavorites)) {
-      ytFavorites = cloudState.ytFavorites;
-    }
+    currentUserDoc = await firebaseClient.ensureUserDocument(currentUser, currentUser.displayName || '');
+    updateAuthUi(currentUserDoc);
+    applyCloudFavoritesToUi();
     forYouDirty = true;
     renderFavorites();
   } catch (error) {
@@ -876,6 +969,8 @@ function initializeAuthSystem() {
     setAuthStatus('Firebase not initialized');
     return;
   }
+
+  bindAuthModalEvents();
 
   firebaseClient.onAuthStateChanged((user) => {
     handleAuthState(user);
@@ -911,6 +1006,7 @@ function initializeAuthSystem() {
     try {
       await firebaseClient.logout();
       setAuthStatus('Logged out');
+      closeAuthModal();
     } catch (error) {
       console.error(error);
       setAuthStatus(error.message || 'Logout failed');
@@ -924,10 +1020,27 @@ function initializeAuthSystem() {
     try {
       const avatarUrl = await firebaseClient.uploadAvatar(file);
       userAvatarEl.src = avatarUrl;
+      if (currentUser) {
+        currentUserDoc = { ...(currentUserDoc || {}), avatarUrl };
+      }
       setAuthStatus('Avatar updated');
     } catch (error) {
       console.error(error);
       setAuthStatus(error.message || 'Avatar upload failed');
+    }
+  });
+
+  saveProfileBtn.addEventListener('click', async () => {
+    if (!currentUser) return;
+    try {
+      const nickname = profileNicknameInput.value.trim();
+      await firebaseClient.updateUserProfile(currentUser.uid, { nickname });
+      currentUserDoc = { ...(currentUserDoc || {}), nickname, email: currentUser.email || '' };
+      updateAuthUi(currentUserDoc);
+      setAuthStatus('Profile saved');
+    } catch (error) {
+      console.error(error);
+      setAuthStatus(error.message || 'Failed to save profile');
     }
   });
 }

@@ -14,32 +14,44 @@
   const db = firebase.firestore();
   const storage = firebase.storage();
 
-  async function ensureUserProfile(user, patch = {}) {
-    if (!user) return null;
-    const userRef = db.collection('users').doc(user.uid);
-    const baseProfile = {
-      uid: user.uid,
-      email: user.email || '',
-      displayName: user.displayName || '',
-      avatarUrl: user.photoURL || '',
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    };
-    await userRef.set({ profile: { ...baseProfile, ...patch } }, { merge: true });
-    const snapshot = await userRef.get();
-    return snapshot.data()?.profile || null;
+  function userRef(uid) {
+    return db.collection('users').doc(uid);
   }
 
-  async function register(email, password, displayName) {
+  async function ensureUserDocument(user, nickname = '') {
+    if (!user) return null;
+    const ref = userRef(user.uid);
+    const snapshot = await ref.get();
+    if (!snapshot.exists) {
+      await ref.set({
+        nickname: nickname || user.displayName || '',
+        email: user.email || '',
+        avatarUrl: user.photoURL || '',
+        favorites: [],
+        history: [],
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    } else {
+      await ref.set({
+        email: user.email || '',
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+    }
+    const updated = await ref.get();
+    return updated.data() || null;
+  }
+
+  async function register(email, password, nickname) {
     const credential = await auth.createUserWithEmailAndPassword(email, password);
-    if (displayName) await credential.user.updateProfile({ displayName });
-    await ensureUserProfile(credential.user, { displayName: displayName || '' });
+    if (nickname) await credential.user.updateProfile({ displayName: nickname });
+    await ensureUserDocument(credential.user, nickname || '');
     return credential.user;
   }
 
   async function login(email, password) {
     const credential = await auth.signInWithEmailAndPassword(email, password);
-    await ensureUserProfile(credential.user);
+    await ensureUserDocument(credential.user);
     return credential.user;
   }
 
@@ -51,39 +63,40 @@
     return auth.onAuthStateChanged(handler);
   }
 
-  async function getUserProfile(uid) {
+  async function getUserDocument(uid) {
     if (!uid) return null;
-    const snapshot = await db.collection('users').doc(uid).get();
-    return snapshot.exists ? snapshot.data()?.profile || null : null;
+    const snapshot = await userRef(uid).get();
+    return snapshot.exists ? snapshot.data() : null;
+  }
+
+  async function updateUserProfile(uid, patch) {
+    if (!uid) return;
+    await userRef(uid).set({
+      ...patch,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    }, { merge: true });
+  }
+
+  async function setFavorites(uid, favorites) {
+    await updateUserProfile(uid, { favorites: favorites || [] });
+  }
+
+  async function addHistoryItem(uid, item) {
+    const doc = await getUserDocument(uid);
+    const existing = Array.isArray(doc?.history) ? doc.history : [];
+    const deduped = [item, ...existing.filter((entry) => entry?.id !== item?.id)].slice(0, 20);
+    await updateUserProfile(uid, { history: deduped });
   }
 
   async function uploadAvatar(file) {
     const user = auth.currentUser;
     if (!user || !file) throw new Error('User not authenticated');
-    const avatarRef = storage.ref().child(`avatars/${user.uid}/${Date.now()}_${file.name}`);
-    await avatarRef.put(file);
-    const avatarUrl = await avatarRef.getDownloadURL();
+    const ref = storage.ref().child(`avatars/${user.uid}/${Date.now()}_${file.name}`);
+    await ref.put(file);
+    const avatarUrl = await ref.getDownloadURL();
     await user.updateProfile({ photoURL: avatarUrl });
-    await ensureUserProfile(user, { avatarUrl });
+    await updateUserProfile(user.uid, { avatarUrl });
     return avatarUrl;
-  }
-
-  async function saveUserState(payload) {
-    const user = auth.currentUser;
-    if (!user) return;
-    await db.collection('users').doc(user.uid).set({
-      playerState: {
-        ...payload,
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      },
-    }, { merge: true });
-  }
-
-  async function loadUserState(uid) {
-    if (!uid) return null;
-    const snapshot = await db.collection('users').doc(uid).get();
-    if (!snapshot.exists) return null;
-    return snapshot.data()?.playerState || null;
   }
 
   window.firebaseClient = {
@@ -92,10 +105,11 @@
     login,
     logout,
     onAuthStateChanged,
-    ensureUserProfile,
-    getUserProfile,
+    ensureUserDocument,
+    getUserDocument,
+    updateUserProfile,
+    setFavorites,
+    addHistoryItem,
     uploadAvatar,
-    saveUserState,
-    loadUserState,
   };
 })();

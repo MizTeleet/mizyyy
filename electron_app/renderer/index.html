@@ -9,7 +9,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar glass">
-        <div class="logo" title="LeetMusic">LM</div>
+        <button id="profileBtn" class="logo profile-btn" title="Profile">LM</button>
         <button class="nav-btn active" data-tab="home" title="Home">⭐</button>
         <button class="nav-btn" data-tab="for-you" title="For You">✨</button>
         <button class="nav-btn" data-tab="music" title="Music">🎵</button>
@@ -17,23 +17,6 @@
       </aside>
 
       <main class="content">
-        <section class="auth-bar glass">
-          <img id="userAvatar" class="user-avatar" alt="avatar" />
-          <div class="auth-fields">
-            <input id="authName" placeholder="Name" />
-            <input id="authEmail" type="email" placeholder="Email" />
-            <input id="authPassword" type="password" placeholder="Password" />
-          </div>
-          <div class="auth-actions">
-            <button id="registerBtn">Register</button>
-            <button id="loginBtn">Login</button>
-            <button id="logoutBtn" class="ghost-btn">Logout</button>
-            <button id="uploadAvatarBtn" class="ghost-btn">Avatar</button>
-            <input id="avatarInput" type="file" accept="image/*" hidden />
-          </div>
-          <div id="authStatus" class="auth-status">Guest mode</div>
-        </section>
-
         <section class="tabs">
           <div class="tab-panel active" id="tab-home">
             <section class="hero glass" id="hero">
@@ -130,6 +113,39 @@
           </div>
         </footer>
       </main>
+    </div>
+
+    <div id="authModal" class="auth-modal" hidden>
+      <div id="authBackdrop" class="auth-backdrop"></div>
+      <section class="auth-dialog glass">
+        <div class="auth-header">
+          <h3 id="authTitle">Account</h3>
+          <button id="authCloseBtn" class="ghost-btn">✕</button>
+        </div>
+        <div id="authStatus" class="auth-status">Guest mode</div>
+
+        <div id="authGuestView" class="auth-view">
+          <input id="authName" placeholder="Nickname" />
+          <input id="authEmail" type="email" placeholder="Email" />
+          <input id="authPassword" type="password" placeholder="Password" />
+          <div class="auth-actions">
+            <button id="registerBtn">Register</button>
+            <button id="loginBtn">Login</button>
+          </div>
+        </div>
+
+        <div id="authUserView" class="auth-view" hidden>
+          <img id="userAvatar" class="auth-avatar" alt="avatar" />
+          <input id="profileNickname" placeholder="Nickname" />
+          <input id="profileEmail" disabled />
+          <div class="auth-actions">
+            <button id="saveProfileBtn">Save profile</button>
+            <button id="uploadAvatarBtn" class="ghost-btn">Change avatar</button>
+            <button id="logoutBtn" class="ghost-btn">Logout</button>
+            <input id="avatarInput" type="file" accept="image/*" hidden />
+          </div>
+        </div>
+      </section>
     </div>
 
     <div class="eq-modal" id="eqModal" hidden>
