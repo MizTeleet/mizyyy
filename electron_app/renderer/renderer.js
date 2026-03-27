@@ -17,7 +17,7 @@ const favToggleBtn = document.getElementById('favToggleBtn');
 const ytResultsEl = document.getElementById('ytResults');
 const heroPlayBtn = document.getElementById('heroPlayBtn');
 const heroVibeTitle = document.getElementById('heroVibeTitle');
-const forYouGroupsEl = document.getElementById('forYouGroups');
+const forYouListEl = document.getElementById('forYouList');
 
 const favTitleInput = document.getElementById('favTitleInput');
 const favDescInput = document.getElementById('favDescInput');
@@ -43,10 +43,11 @@ let heroAnimationFrame = null;
 const BEHAVIOR_STORAGE_KEY = 'leetmusic_behavior_v1';
 const RECOMMEND_CACHE_KEY = 'leetmusic_reco_cache_v1';
 const MAX_RECENT = 30;
-const MAX_GROUPS = 3;
-const MAX_TRACKS_PER_GROUP = 5;
+const MAX_RECOMMENDED_TRACKS = 5;
+const MAX_QUERY_COUNT = 5;
 const CACHE_TTL_MS = 1000 * 60 * 30;
 const STOPWORDS = new Set(['official', 'video', 'audio', 'music', 'feat', 'ft', 'prod', 'remix', 'edit', 'live', 'version', 'clip', 'lyrics', 'and', 'the']);
+const BLOCKED_TITLE_TERMS = ['playlist', '1 hour', 'mix', 'full album', 'live', 'remix', 'slowed', 'nightcore', 'bass boosted'];
 
 let behaviorStore = loadBehaviorStore();
 let recommendationCache = loadRecommendationCache();
@@ -156,59 +157,84 @@ function computeSignalScore(entry) {
   return (entry.liked ? 10 : 0) + Math.min(5, entry.playCount) + recentBoost;
 }
 
+function parseDurationToSeconds(durationText) {
+  if (!durationText) return 0;
+  const raw = String(durationText).trim();
+  if (!raw) return 0;
+  const parts = raw.split(':').map((x) => Number(x));
+  if (parts.some((x) => Number.isNaN(x))) return 0;
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  return 0;
+}
+
+function isGoodRecommendationCandidate(item) {
+  const durationSec = parseDurationToSeconds(item.duration);
+  if (!durationSec || durationSec < 60 || durationSec > 600) return false;
+  const title = (item.title || '').toLowerCase();
+  return !BLOCKED_TITLE_TERMS.some((term) => title.includes(term));
+}
+
+function slightShuffle(items) {
+  const result = [...items];
+  for (let i = result.length - 1; i > 0; i -= 1) {
+    const j = Math.max(0, i - Math.floor(Math.random() * 2));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
 function buildRecommendationQueries() {
-  const entries = Object.values(behaviorStore.tracks);
+  const entries = Object.entries(behaviorStore.tracks)
+    .map(([key, value]) => ({ key, ...value }))
+    .sort((a, b) => computeSignalScore(b) - computeSignalScore(a));
+
   if (!entries.length) return [];
 
-  const artistScores = new Map();
-  const keywordScores = new Map();
+  const recentKeys = new Set(behaviorStore.recent.slice(0, 10));
+  const focusEntries = entries.filter((entry) => recentKeys.has(entry.key) || entry.liked).slice(0, 10);
+  const source = focusEntries.length ? focusEntries : entries.slice(0, 10);
 
-  entries.forEach((entry) => {
-    const score = computeSignalScore(entry);
+  const artistScores = new Map();
+  source.forEach((entry) => {
     const artist = normalizeSpaces(entry.artist || parseArtistFromTitle(entry.title));
-    if (artist) artistScores.set(artist, (artistScores.get(artist) || 0) + score);
-    extractKeywords(entry.title).forEach((keyword) => {
-      keywordScores.set(keyword, (keywordScores.get(keyword) || 0) + score * 0.7);
-    });
+    if (!artist) return;
+    artistScores.set(artist, (artistScores.get(artist) || 0) + computeSignalScore(entry));
   });
 
   const topArtists = [...artistScores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([artist]) => artist);
-  const topKeywords = [...keywordScores.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([kw]) => kw);
+  if (!topArtists.length) return [];
 
+  const templates = ['similar artists', 'type beat', 'style', 'related artists', 'best tracks'];
   const queries = [];
   topArtists.forEach((artist) => {
-    queries.push({ label: `${artist} mix`, query: `${artist} mix` });
-    queries.push({ label: `${artist} playlist`, query: `${artist} similar artists playlist` });
-  });
-  topKeywords.forEach((keyword) => {
-    const label = `${keyword[0].toUpperCase()}${keyword.slice(1)} подборка`;
-    queries.push({ label, query: `${keyword} playlist` });
-    queries.push({ label: `${keyword} vibes`, query: `${keyword} mix 2024` });
+    templates.forEach((suffix) => queries.push(`${artist} ${suffix}`));
   });
 
-  return queries.slice(0, MAX_GROUPS * 2);
+  return queries.slice(0, MAX_QUERY_COUNT);
 }
 
 async function searchWithCache(query) {
-  const cacheItem = recommendationCache[query];
+  const cacheItem = recommendationCache[query.toLowerCase()];
   if (cacheItem && Date.now() - cacheItem.savedAt < CACHE_TTL_MS && Array.isArray(cacheItem.items)) {
     return cacheItem.items;
   }
 
-  const items = (await api.ytSearch(query)).slice(0, MAX_TRACKS_PER_GROUP);
-  recommendationCache[query] = { savedAt: Date.now(), items };
+  const items = (await api.ytSearch(query)).slice(0, 5);
+  recommendationCache[query.toLowerCase()] = { savedAt: Date.now(), items };
   persistRecommendationCache();
   return items;
 }
 
-function createForYouTrackItem(item) {
+function createForYouTrackItem(item, index) {
   const li = document.createElement('li');
-  li.className = 'yt-item';
+  li.className = 'for-you-item';
   const info = document.createElement('div');
-  info.innerHTML = `<strong>${item.title}</strong><br/><small>${item.duration || '—'}</small>`;
+  info.className = 'for-you-meta';
+  info.innerHTML = `<strong>${index + 1}. ${item.title}</strong><small>${item.duration || '—'}</small>`;
 
   const actions = document.createElement('div');
-  actions.className = 'yt-actions';
+  actions.className = 'for-you-actions';
 
   const play = document.createElement('button');
   play.textContent = 'Play';
@@ -233,51 +259,45 @@ function createForYouTrackItem(item) {
 }
 
 async function renderForYou() {
-  if (!forYouGroupsEl) return;
+  if (!forYouListEl) return;
   if (forYouLoading) return;
-  if (!forYouDirty && forYouGroupsEl.childElementCount > 0) return;
+  if (!forYouDirty && forYouListEl.childElementCount > 0) return;
   forYouLoading = true;
 
-  forYouGroupsEl.innerHTML = '<div class="yt-item">Подбираем рекомендации…</div>';
+  forYouListEl.innerHTML = '<li>Подбираем рекомендации…</li>';
   const queries = buildRecommendationQueries();
   if (!queries.length) {
-    forYouGroupsEl.innerHTML = '<div class="yt-item">Слушай треки и добавляй в избранное — тут появятся персональные рекомендации.</div>';
+    forYouListEl.innerHTML = '<li>Слушай треки и добавляй в избранное — тут появятся персональные рекомендации.</li>';
     forYouLoading = false;
     forYouDirty = false;
     return;
   }
 
+  const merged = [];
   const seenIds = new Set();
-  const groups = [];
-  for (const candidate of queries) {
-    const items = await searchWithCache(candidate.query);
-    const deduped = items.filter((item) => {
-      if (seenIds.has(item.id)) return false;
+  for (const query of queries) {
+    const items = await searchWithCache(query);
+    for (const item of items) {
+      if (seenIds.has(item.id)) continue;
+      if (!isGoodRecommendationCandidate(item)) continue;
       seenIds.add(item.id);
-      return true;
-    }).slice(0, MAX_TRACKS_PER_GROUP);
-    if (!deduped.length) continue;
-    groups.push({ label: candidate.label, items: deduped });
-    if (groups.length >= MAX_GROUPS) break;
+      merged.push(item);
+      if (merged.length >= MAX_RECOMMENDED_TRACKS * 2) break;
+    }
+    if (merged.length >= MAX_RECOMMENDED_TRACKS * 2) break;
   }
 
-  forYouGroupsEl.innerHTML = '';
-  if (!groups.length) {
-    forYouGroupsEl.innerHTML = '<div class="yt-item">Недостаточно данных для рекомендаций. Попробуй послушать ещё несколько треков.</div>';
+  const finalItems = slightShuffle(merged).slice(0, MAX_RECOMMENDED_TRACKS);
+
+  forYouListEl.innerHTML = '';
+  if (!finalItems.length) {
+    forYouListEl.innerHTML = '<li>Недостаточно релевантных треков. Продолжай слушать — рекомендации улучшатся.</li>';
     forYouLoading = false;
     forYouDirty = false;
     return;
   }
 
-  groups.forEach((group) => {
-    const block = document.createElement('section');
-    block.className = 'for-you-group';
-    block.innerHTML = `<h4>${group.label}</h4>`;
-    const list = document.createElement('ul');
-    group.items.forEach((item) => list.append(createForYouTrackItem(item)));
-    block.append(list);
-    forYouGroupsEl.append(block);
-  });
+  finalItems.forEach((item, index) => forYouListEl.append(createForYouTrackItem(item, index)));
 
   forYouLoading = false;
   forYouDirty = false;

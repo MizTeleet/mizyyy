@@ -120,12 +120,13 @@ button { border: 0; border-radius: 10px; cursor: pointer; color: #eaf2ff; backgr
 button:hover { transform: scale(1.04); background: rgba(109,136,194,.9); box-shadow: 0 8px 16px rgba(0,0,0,.28); }
 
 .tabs { position: relative; min-height: 0; }
-.tab-panel { position: absolute; inset: 0; opacity: 0; pointer-events: none; transform: translateY(8px); transition: all .24s ease; display: grid; gap: 10px; }
+.tab-panel { position: absolute; inset: 0; opacity: 0; pointer-events: none; transform: translateY(8px); transition: all .24s ease; display: grid; gap: 10px; overflow: auto; }
 .tab-panel.active { opacity: 1; pointer-events: auto; transform: translateY(0); }
 #tab-home { grid-template-rows: 340px auto 1fr; }
 #tab-for-you { grid-template-rows: 1fr; }
 #tab-music { grid-template-rows: 1fr; }
 #tab-favorites { grid-template-columns: 1fr 1fr; }
+#tab-home { overflow: hidden; height: 100vh; }
 
 .search { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 10px; border-radius: 14px; }
 .search input, .fav-edit-panel input, .fav-edit-panel textarea { width: 100%; border: 1px solid rgba(140,176,232,.28); background: rgba(7,16,34,.78); color: var(--text); border-radius: 10px; padding: 10px; }
@@ -138,10 +139,12 @@ button:hover { transform: scale(1.04); background: rgba(109,136,194,.9); box-sha
 .yt-item:hover { transform: translateX(2px); border-color: rgba(160,188,243,.34); }
 .yt-actions { display: flex; gap: 8px; }
 .for-you-subtle { margin: 2px 0 12px; color: var(--muted); font-size: .9rem; }
-.for-you-groups { display: grid; gap: 12px; }
-.for-you-group { border-radius: 12px; padding: 10px; background: rgba(255,255,255,.04); border: 1px solid rgba(160,188,243,.18); }
-.for-you-group h4 { margin: 0 0 8px; font-size: 1rem; }
-.for-you-group ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.for-you-list { display: grid; gap: 8px; max-height: 100%; overflow: auto; }
+.for-you-item { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 10px; }
+.for-you-meta { min-width: 0; }
+.for-you-meta strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.for-you-meta small { color: var(--muted); }
+.for-you-actions { display: flex; gap: 8px; }
 
 .panel-head { display: flex; justify-content: space-between; align-items: center; font-size: .85rem; color: var(--muted); margin-bottom: 8px; }
 .track-list { max-height: 100%; overflow: auto; }
