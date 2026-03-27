@@ -36,6 +36,7 @@ let midFilter;
 let trebleFilter;
 let vocalFilter;
 let analyserNode;
+let masterGainNode;
 let heroAnimationFrame = null;
 
 
@@ -228,13 +229,25 @@ async function ensureAudioGraph() {
 
   analyserNode = audioCtx.createAnalyser();
   analyserNode.fftSize = 128;
+  masterGainNode = audioCtx.createGain();
+  masterGainNode.gain.value = Number(volume.value) / 100;
 
   sourceNode.connect(bassFilter);
   bassFilter.connect(midFilter);
   midFilter.connect(trebleFilter);
   trebleFilter.connect(vocalFilter);
   vocalFilter.connect(analyserNode);
-  analyserNode.connect(audioCtx.destination);
+  analyserNode.connect(masterGainNode);
+  masterGainNode.connect(audioCtx.destination);
+}
+
+function fadeInCurrentTrack(durationSeconds = 0.8) {
+  if (!audioCtx || !masterGainNode) return;
+  const now = audioCtx.currentTime;
+  const targetGain = Number(volume.value) / 100;
+  masterGainNode.gain.cancelScheduledValues(now);
+  masterGainNode.gain.setValueAtTime(0, now);
+  masterGainNode.gain.linearRampToValueAtTime(targetGain, now + durationSeconds);
 }
 
 async function playTrack(index) {
@@ -245,6 +258,7 @@ async function playTrack(index) {
   await ensureAudioGraph();
   if (audioCtx.state === 'suspended') await audioCtx.resume();
   await audio.play();
+  fadeInCurrentTrack();
 
   const displayTitle = track.customTitle || track.title;
   nowTitle.textContent = displayTitle;
@@ -262,6 +276,7 @@ async function playYoutubeResult(item) {
   const streamUrl = await api.ytStreamUrl(item.url);
   audio.src = streamUrl;
   await audio.play();
+  fadeInCurrentTrack();
   nowTitle.textContent = item.title;
   nowSub.textContent = `${item.author || 'Online'} ${item.duration ? `• ${item.duration}` : ''}`;
   miniTitle.textContent = item.title;
@@ -371,9 +386,15 @@ progress.addEventListener('change', () => {
 });
 
 volume.addEventListener('input', () => {
-  audio.volume = Number(volume.value) / 100;
+  if (masterGainNode && audioCtx) {
+    const now = audioCtx.currentTime;
+    const targetGain = Number(volume.value) / 100;
+    masterGainNode.gain.cancelScheduledValues(now);
+    masterGainNode.gain.setValueAtTime(masterGainNode.gain.value, now);
+    masterGainNode.gain.linearRampToValueAtTime(targetGain, now + 0.08);
+  }
 });
-audio.volume = 0.85;
+audio.volume = 1;
 
 audio.addEventListener('timeupdate', () => {
   if (!seeking && audio.duration) progress.value = String((audio.currentTime / audio.duration) * 100);
@@ -381,8 +402,7 @@ audio.addEventListener('timeupdate', () => {
 });
 
 audio.addEventListener('ended', () => {
-  if (!tracks.length) return;
-  playTrack((currentIndex + 1) % tracks.length);
+  setPlaybackVisualState(false);
 });
 
 audio.addEventListener('pause', () => setPlaybackVisualState(false));
