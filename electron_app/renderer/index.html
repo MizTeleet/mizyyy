@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LeetMusic</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar glass">
+        <button id="profileBtn" class="logo profile-btn" title="Profile">
+          <img id="sidebarAvatarImg" class="sidebar-avatar" alt="avatar" />
+          <span id="sidebarAvatarFallback">LM</span>
+        </button>
+        <button class="nav-btn active" data-tab="home" title="Home">⭐</button>
+        <button class="nav-btn" data-tab="for-you" title="For You">✨</button>
+        <button class="nav-btn" data-tab="music" title="Music">🎵</button>
+        <button class="nav-btn" data-tab="favorites" title="Favorites">❤</button>
+        <button class="nav-btn" data-tab="playlists" title="Playlists">📚</button>
+      </aside>
+
+      <main class="content">
+        <section class="tabs">
+          <div class="tab-panel active" id="tab-home">
+            <section class="hero glass" id="hero">
+              <div class="fog-overlay" id="fogOverlay"></div>
+              <article class="hero-current glass-soft">
+                <img id="heroProfileAvatar" class="hero-cover" alt="avatar" />
+                <div>
+                  <h2 id="nowTitle">Твой вайб</h2>
+                  <p id="nowSub">Слушай музыку в LeetMusic</p>
+                </div>
+                <button id="openEqBtn" class="ghost-btn">Эквалайзер</button>
+              </article>
+
+              <div class="hero-center">
+                <div class="hero-title-row">
+                  <button id="heroPlayBtn" class="hero-play-inline" aria-label="Hero play">
+                    <i data-lucide="play"></i>
+                  </button>
+                  <h1 id="heroVibeTitle" role="button" tabindex="0" aria-label="Toggle play">Твой вайб</h1>
+                </div>
+                <p>Тут можешь послушать музыку</p>
+              </div>
+            </section>
+
+            <section class="search glass">
+              <input id="ytSearchInput" placeholder="Music search..." />
+              <button id="ytSearchBtn">Search</button>
+            </section>
+
+            <section class="yt-results panel glass" id="ytResultsWrap">
+              <h3>Online results</h3>
+              <ul id="ytResults" class="yt-list"></ul>
+            </section>
+          </div>
+
+          <div class="tab-panel" id="tab-music">
+            <div class="panel glass">
+              <div class="panel-head">
+                <span id="status"></span>
+                <button id="importBtn">Импорт</button>
+              </div>
+              <h3>Локальная коллекция</h3>
+              <ul id="trackList" class="track-list"></ul>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-for-you">
+            <div class="panel glass">
+              <h2>Recommended for you</h2>
+              <p class="for-you-subtle">Based on your listening</p>
+              <ul id="forYouList" class="track-list for-you-list"></ul>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-favorites">
+            <div class="panel glass fav-list-panel">
+              <h2>Избранные</h2>
+              <ul id="favList" class="track-list"></ul>
+            </div>
+            <div class="panel glass fav-edit-panel">
+              <h2>Редактирование трека</h2>
+              <input id="favTitleInput" placeholder="Название трека" />
+              <textarea id="favDescInput" placeholder="Описание"></textarea>
+              <div class="cover-row">
+                <img id="favCoverPreview" alt="cover" />
+                <button id="pickCoverBtn" class="ghost-btn">Добавить обложку</button>
+              </div>
+              <div class="fav-actions">
+                <button id="saveFavBtn">Сохранить</button>
+                <button id="exportFavBtn" class="ghost-btn">Сохранить на ПК</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="tab-panel" id="tab-playlists">
+            <div class="panel glass">
+              <div class="panel-head">
+                <h3 data-i18n="playlists_title">Playlists</h3>
+                <div class="playlist-create">
+                  <input id="playlistNameInput" data-i18n-placeholder="playlist_name" placeholder="Playlist name" />
+                  <button id="createPlaylistBtn" data-i18n="create">Create</button>
+                </div>
+              </div>
+              <ul id="playlistList" class="track-list"></ul>
+            </div>
+            <div class="panel glass">
+              <div class="panel-head">
+                <span id="playlistCurrentName" data-i18n="playlist_tracks">Playlist tracks</span>
+                <div class="playlist-edit-actions">
+                  <button id="renamePlaylistBtn" class="ghost-btn" data-i18n="rename">Rename</button>
+                  <button id="deletePlaylistBtn" class="ghost-btn" data-i18n="delete">Delete</button>
+                </div>
+              </div>
+              <ul id="playlistTrackList" class="track-list"></ul>
+            </div>
+          </div>
+        </section>
+
+        <footer class="dock glass">
+          <div class="meta" id="bottomMetaClick">
+            <div id="miniTitle">LeetMusic</div>
+            <div id="miniSub">Оффлайн плеер</div>
+          </div>
+          <div class="controls">
+            <button id="favToggleBtn" title="Избранное" aria-label="Избранное"><i data-lucide="heart"></i></button>
+            <button id="prevBtn" aria-label="Предыдущий"><i data-lucide="skip-back"></i></button>
+            <button id="playBtn" class="accent" aria-label="Play"><i data-lucide="play"></i></button>
+            <button id="nextBtn" aria-label="Следующий"><i data-lucide="skip-forward"></i></button>
+            <button id="autoPlayNextBtn" title="Auto Play Next" aria-label="Auto Play Next"><i data-lucide="list-end"></i></button>
+          </div>
+          <div class="progress-wrap">
+            <input id="progress" type="range" min="0" max="100" value="0" />
+            <span id="time">0:00 / 0:00</span>
+            <span id="playStatus" class="play-status"></span>
+          </div>
+          <div class="volume-wrap">
+            <span>Громк.</span>
+            <input id="volume" type="range" min="0" max="100" value="85" />
+          </div>
+        </footer>
+      </main>
+    </div>
+
+    <div id="authGate" class="auth-gate">
+      <div class="auth-gate-backdrop"></div>
+      <section class="auth-gate-card glass">
+        <div class="auth-gate-logo">LM</div>
+        <h1>LeetMusic</h1>
+        <p id="gateSubtitle" data-i18n="sign_in_continue">Sign in to continue</p>
+        <input id="gateNickname" data-i18n-placeholder="nickname_register" placeholder="Nickname (for register)" />
+        <input id="gateEmail" type="email" data-i18n-placeholder="email" placeholder="Email" />
+        <input id="gatePassword" type="password" data-i18n-placeholder="password" placeholder="Password" />
+        <div class="auth-gate-actions">
+          <button id="gateLoginBtn" data-i18n="login">Login</button>
+          <button id="gateRegisterBtn" data-i18n="register">Register</button>
+        </div>
+        <button id="gateSwitchModeBtn" class="ghost-btn" data-i18n="switch_to_register">Switch to Register</button>
+        <div id="gateStatus" class="auth-gate-status"></div>
+        <div id="gateSpinner" class="auth-gate-spinner" hidden></div>
+      </section>
+    </div>
+
+    <div id="authModal" class="auth-modal" hidden>
+      <div id="authBackdrop" class="auth-backdrop"></div>
+      <section class="auth-dialog glass">
+        <div class="auth-header">
+          <h3 id="authTitle">Account</h3>
+          <button id="authCloseBtn" class="ghost-btn">✕</button>
+        </div>
+        <div id="authStatus" class="auth-status">Guest mode</div>
+
+        <div id="authGuestView" class="auth-view">
+          <input id="authName" placeholder="Nickname" />
+          <input id="authEmail" type="email" placeholder="Email" />
+          <input id="authPassword" type="password" placeholder="Password" />
+          <div class="auth-actions">
+            <button id="registerBtn">Register</button>
+            <button id="loginBtn">Login</button>
+          </div>
+        </div>
+
+        <div id="authUserView" class="auth-view" hidden>
+          <img id="userAvatar" class="auth-avatar" alt="avatar" />
+          <input id="profileNickname" placeholder="Nickname" />
+          <input id="profileEmail" disabled />
+          <div class="settings-grid">
+            <label>
+              <span data-i18n="theme">Theme</span>
+              <select id="themeSelect">
+                <option value="dark" data-i18n="theme_dark">Dark</option>
+                <option value="light" data-i18n="theme_light">Light</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="language">Language</span>
+              <select id="languageSelect">
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+          </div>
+          <div class="support-block">
+            <strong data-i18n="support_contact">Support / Contact</strong>
+            <span>Telegram ID: 5724486554</span>
+          </div>
+          <div class="auth-actions">
+            <button id="saveProfileBtn">Save profile</button>
+            <button id="uploadAvatarBtn" class="ghost-btn">Change avatar</button>
+            <button id="logoutBtn" class="ghost-btn">Logout</button>
+            <input id="avatarInput" type="file" accept="image/*" hidden />
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="eq-modal" id="eqModal" hidden>
+      <div class="eq-backdrop" id="eqCloseBackdrop"></div>
+      <div class="eq-card glass">
+        <h3>Эквалайзер</h3>
+        <div class="eq-presets">
+          <button data-preset="flat">Flat</button>
+          <button data-preset="bass">Bass Boost</button>
+          <button data-preset="vocal">Vocal</button>
+          <button data-preset="treble">Treble</button>
+        </div>
+        <div class="eq-grid">
+          <label>Частоты (mid)
+            <input id="eqMid" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Бас
+            <input id="eqBass" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Высокие
+            <input id="eqTreble" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+          <label>Вокал
+            <input id="eqVocal" type="range" min="-12" max="12" value="0" step="1" />
+          </label>
+        </div>
+        <button id="eqCloseBtn" class="ghost-btn">Закрыть</button>
+      </div>
+    </div>
+
+    <audio id="audio"></audio>
+    <script src="../node_modules/firebase/firebase-app-compat.js"></script>
+    <script src="../node_modules/firebase/firebase-auth-compat.js"></script>
+    <script src="../node_modules/firebase/firebase-firestore-compat.js"></script>
+    <script src="firebase.js"></script>
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+    <script src="renderer.js"></script>
+  </body>
+</html>
