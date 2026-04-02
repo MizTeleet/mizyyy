@@ -18,17 +18,24 @@
     return db.collection('users').doc(uid);
   }
 
+  function favoritesCol(uid) {
+    return db.collection('favorites').where('userId', '==', uid);
+  }
+
+  function playlistsCol(uid) {
+    return db.collection('playlists').where('userId', '==', uid);
+  }
+
   async function ensureUserDocument(user, nickname = '') {
     if (!user) return null;
     const ref = userRef(user.uid);
     const snapshot = await ref.get();
     if (!snapshot.exists) {
       await ref.set({
+        uid: user.uid,
         nickname: nickname || user.displayName || '',
         email: user.email || '',
-        avatarUrl: user.photoURL || '',
-        favorites: [],
-        history: [],
+        avatar: user.photoURL || '',
         updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       });
@@ -78,7 +85,22 @@
   }
 
   async function setFavorites(uid, favorites) {
-    await updateUserProfile(uid, { favorites: favorites || [] });
+    const batch = db.batch();
+    const snapshot = await favoritesCol(uid).get();
+    snapshot.forEach((doc) => batch.delete(doc.ref));
+    (favorites || []).forEach((item) => {
+      const docRef = db.collection('favorites').doc();
+      batch.set(docRef, {
+        userId: uid,
+        trackId: item.id || '',
+        title: item.title || '',
+        artist: item.artist || '',
+        source: item.source || 'youtube',
+        youtubeUrl: item.youtubeUrl || item.url || '',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+    });
+    await batch.commit();
   }
 
   async function addHistoryItem(uid, item) {
@@ -86,6 +108,69 @@
     const existing = Array.isArray(doc?.history) ? doc.history : [];
     const deduped = [item, ...existing.filter((entry) => entry?.id !== item?.id)].slice(0, 20);
     await updateUserProfile(uid, { history: deduped });
+  }
+
+  function listenUserProfile(uid, handler) {
+    return userRef(uid).onSnapshot((snapshot) => {
+      handler(snapshot.exists ? snapshot.data() : null);
+    });
+  }
+
+  function listenFavorites(uid, handler) {
+    return favoritesCol(uid).onSnapshot((snapshot) => {
+      const items = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      handler(items);
+    });
+  }
+
+  async function createPlaylist(uid, name) {
+    const ref = await db.collection('playlists').add({
+      userId: uid,
+      name: name || 'My Playlist',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return ref.id;
+  }
+
+  async function renamePlaylist(playlistId, name) {
+    await db.collection('playlists').doc(playlistId).set({ name }, { merge: true });
+  }
+
+  async function deletePlaylist(playlistId) {
+    const tracks = await db.collection('playlists').doc(playlistId).collection('tracks').get();
+    const batch = db.batch();
+    tracks.forEach((doc) => batch.delete(doc.ref));
+    batch.delete(db.collection('playlists').doc(playlistId));
+    await batch.commit();
+  }
+
+  async function addTrackToPlaylist(playlistId, track) {
+    await db.collection('playlists').doc(playlistId).collection('tracks').add({
+      trackId: track.id || '',
+      title: track.title || '',
+      artist: track.artist || '',
+      source: track.source || 'youtube',
+      youtubeUrl: track.youtubeUrl || track.url || '',
+      addedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+
+  async function removeTrackFromPlaylist(playlistId, docId) {
+    await db.collection('playlists').doc(playlistId).collection('tracks').doc(docId).delete();
+  }
+
+  function listenPlaylists(uid, handler) {
+    return playlistsCol(uid).onSnapshot(async (snapshot) => {
+      const playlists = await Promise.all(snapshot.docs.map(async (doc) => {
+        const tracksSnap = await db.collection('playlists').doc(doc.id).collection('tracks').get();
+        return {
+          id: doc.id,
+          ...doc.data(),
+          tracks: tracksSnap.docs.map((x) => ({ id: x.id, ...x.data() })),
+        };
+      }));
+      handler(playlists);
+    });
   }
 
   window.firebaseClient = {
@@ -99,5 +184,13 @@
     updateUserProfile,
     setFavorites,
     addHistoryItem,
+    listenUserProfile,
+    listenFavorites,
+    createPlaylist,
+    renamePlaylist,
+    deletePlaylist,
+    addTrackToPlaylist,
+    removeTrackFromPlaylist,
+    listenPlaylists,
   };
 })();

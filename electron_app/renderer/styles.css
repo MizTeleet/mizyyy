@@ -8,6 +8,16 @@
   --muted: #aab7d5;
   --accent: #7ea2ff;
 }
+body.theme-light {
+  --bg: #f0f4ff;
+  --panel: rgba(255, 255, 255, 0.86);
+  --panel-soft: rgba(245, 248, 255, 0.75);
+  --line: rgba(76, 110, 176, 0.22);
+  --text: #1f2940;
+  --muted: #5f6f93;
+  --accent: #4f7cff;
+  background: radial-gradient(120% 100% at 60% -5%, #d9e8ff 0%, #f2f6ff 70%);
+}
 
 * { box-sizing: border-box; }
 *::-webkit-scrollbar { width: 6px; height: 6px; background: transparent; }
@@ -119,6 +129,14 @@ body.auth-locked .app-shell { filter: blur(3px) brightness(0.55); pointer-events
 .auth-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .auth-status { color: var(--muted); font-size: .88rem; margin-bottom: 10px; }
 .auth-avatar { width: 68px; height: 68px; border-radius: 50%; object-fit: cover; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); }
+.settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.settings-grid label { display: grid; gap: 6px; color: var(--muted); font-size: .9rem; }
+.settings-grid select { border: 1px solid rgba(140,176,232,.28); background: rgba(7,16,34,.78); color: var(--text); border-radius: 10px; padding: 9px; }
+body.theme-light .settings-grid select { background: rgba(255,255,255,.9); }
+.support-block { display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--muted); }
+.playlist-create { display: flex; gap: 8px; align-items: center; }
+.playlist-create input { min-width: 180px; border: 1px solid rgba(140,176,232,.28); background: rgba(7,16,34,.78); color: var(--text); border-radius: 9px; padding: 8px; }
+.playlist-edit-actions { display: flex; gap: 8px; }
 
 @keyframes modalFadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modalZoomIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }

@@ -51,6 +51,16 @@ const gateLoginBtn = document.getElementById('gateLoginBtn');
 const gateRegisterBtn = document.getElementById('gateRegisterBtn');
 const gateStatus = document.getElementById('gateStatus');
 const gateSpinner = document.getElementById('gateSpinner');
+const gateSwitchModeBtn = document.getElementById('gateSwitchModeBtn');
+const themeSelect = document.getElementById('themeSelect');
+const languageSelect = document.getElementById('languageSelect');
+const playlistListEl = document.getElementById('playlistList');
+const playlistTrackListEl = document.getElementById('playlistTrackList');
+const playlistNameInput = document.getElementById('playlistNameInput');
+const createPlaylistBtn = document.getElementById('createPlaylistBtn');
+const renamePlaylistBtn = document.getElementById('renamePlaylistBtn');
+const deletePlaylistBtn = document.getElementById('deletePlaylistBtn');
+const playlistCurrentName = document.getElementById('playlistCurrentName');
 
 const favTitleInput = document.getElementById('favTitleInput');
 const favDescInput = document.getElementById('favDescInput');
@@ -83,6 +93,8 @@ const STOPWORDS = new Set(['official', 'video', 'audio', 'music', 'feat', 'ft', 
 const BLOCKED_TITLE_TERMS = ['playlist', '1 hour', 'mix', 'full album', 'live', 'remix', 'slowed', 'nightcore', 'bass boosted'];
 const USER_NICKNAME_KEY = 'userNickname';
 const USER_AVATAR_KEY = 'userAvatar';
+const USER_THEME_KEY = 'leetmusic_theme';
+const USER_LANG_KEY = 'leetmusic_lang';
 
 let behaviorStore = loadBehaviorStore();
 let recommendationCache = loadRecommendationCache();
@@ -99,6 +111,13 @@ let currentYtResults = [];
 let currentQueue = [];
 let currentQueueIndex = -1;
 let currentQueueSource = 'none';
+let authGateMode = 'login';
+let currentLanguage = localStorage.getItem(USER_LANG_KEY) || 'ru';
+let playlists = [];
+let selectedPlaylistId = '';
+let unsubscribeProfile = null;
+let unsubscribeFavorites = null;
+let unsubscribePlaylists = null;
 const audioManager = {
   currentSource: 'none',
   currentTrack: null,
@@ -120,6 +139,65 @@ function refreshIcons() {
 
 function setPlayStatus(message = '') {
   playStatusEl.textContent = message;
+}
+
+const I18N = {
+  ru: {
+    login: 'Войти',
+    register: 'Регистрация',
+    switch_to_register: 'Нет аккаунта? Регистрация',
+    switch_to_login: 'Уже есть аккаунт? Войти',
+    sign_in_continue: 'Войдите, чтобы продолжить',
+    email: 'Email',
+    password: 'Пароль',
+    nickname_register: 'Никнейм (для регистрации)',
+    playlists_title: 'Плейлисты',
+    playlist_name: 'Название плейлиста',
+    create: 'Создать',
+    rename: 'Переименовать',
+    delete: 'Удалить',
+    playlist_tracks: 'Треки плейлиста',
+    theme: 'Тема',
+    language: 'Язык',
+    theme_dark: 'Тёмная',
+    theme_light: 'Светлая',
+    support_contact: 'Поддержка / Контакт',
+  },
+  en: {
+    login: 'Login',
+    register: 'Register',
+    switch_to_register: 'No account? Register',
+    switch_to_login: 'Have account? Login',
+    sign_in_continue: 'Sign in to continue',
+    email: 'Email',
+    password: 'Password',
+    nickname_register: 'Nickname (register)',
+    playlists_title: 'Playlists',
+    playlist_name: 'Playlist name',
+    create: 'Create',
+    rename: 'Rename',
+    delete: 'Delete',
+    playlist_tracks: 'Playlist tracks',
+    theme: 'Theme',
+    language: 'Language',
+    theme_dark: 'Dark',
+    theme_light: 'Light',
+    support_contact: 'Support / Contact',
+  },
+};
+
+function t(key) {
+  return I18N[currentLanguage]?.[key] || I18N.ru[key] || key;
+}
+
+function applyLocalization() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+    el.setAttribute('placeholder', t(el.dataset.i18nPlaceholder));
+  });
+  gateSwitchModeBtn.textContent = authGateMode === 'login' ? t('switch_to_register') : t('switch_to_login');
 }
 
 function addYoutubeFavorite(item) {
@@ -258,6 +336,14 @@ function setAuthLoadingState(isLoading) {
   gateSpinner.hidden = !isLoading;
 }
 
+function setAuthGateMode(mode) {
+  authGateMode = mode === 'register' ? 'register' : 'login';
+  gateNicknameInput.style.display = authGateMode === 'register' ? 'block' : 'none';
+  gateRegisterBtn.style.display = authGateMode === 'register' ? 'inline-flex' : 'none';
+  gateLoginBtn.style.display = authGateMode === 'login' ? 'inline-flex' : 'none';
+  applyLocalization();
+}
+
 function setAuthGateVisible(isVisible) {
   if (isVisible) {
     authGate.hidden = false;
@@ -270,6 +356,13 @@ function setAuthGateVisible(isVisible) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function applyTheme(theme) {
+  const resolved = theme === 'light' ? 'light' : 'dark';
+  document.body.classList.toggle('theme-light', resolved === 'light');
+  localStorage.setItem(USER_THEME_KEY, resolved);
+  if (themeSelect) themeSelect.value = resolved;
 }
 
 function getStoredNickname() {
@@ -331,7 +424,7 @@ function updateAuthUi(profile) {
 
   const nickname = getStoredNickname() || profile?.nickname || currentUser?.displayName || '';
   const email = profile?.email || currentUser?.email || '';
-  const avatarUrl = getStoredAvatar() || profile?.avatarUrl || '';
+  const avatarUrl = getStoredAvatar() || profile?.avatar || profile?.avatarUrl || '';
   setStoredNickname(nickname);
   if (avatarUrl) setStoredAvatar(avatarUrl);
   profileNicknameInput.value = nickname;
@@ -944,6 +1037,64 @@ function selectFavorite(trackId) {
   renderFavorites();
 }
 
+function renderPlaylists() {
+  if (!playlistListEl || !playlistTrackListEl) return;
+  playlistListEl.innerHTML = '';
+  if (!playlists.length) {
+    playlistListEl.innerHTML = '<li>No playlists yet</li>';
+  } else {
+    playlists.forEach((playlist) => {
+      const li = document.createElement('li');
+      li.textContent = playlist.name || 'Playlist';
+      if (playlist.id === selectedPlaylistId) li.classList.add('active');
+      li.addEventListener('click', () => {
+        selectedPlaylistId = playlist.id;
+        renderPlaylists();
+      });
+      playlistListEl.append(li);
+    });
+  }
+
+  const selected = playlists.find((p) => p.id === selectedPlaylistId);
+  playlistCurrentName.textContent = selected?.name || t('playlist_tracks');
+  playlistTrackListEl.innerHTML = '';
+  if (!selected?.tracks?.length) {
+    playlistTrackListEl.innerHTML = '<li>Empty playlist</li>';
+    return;
+  }
+
+  selected.tracks.forEach((track, index) => {
+    const li = document.createElement('li');
+    li.innerHTML = `<strong>${track.title || 'Track'}</strong><br/><small>${track.artist || ''}</small>`;
+    li.addEventListener('click', async () => {
+      const queue = selected.tracks.map((item) => ({
+        id: item.trackId || item.id,
+        title: item.title || '',
+        source: item.source === 'local' ? 'local' : 'youtube',
+        youtubeItem: {
+          id: item.trackId || item.id,
+          title: item.title || '',
+          author: item.artist || '',
+          url: item.youtubeUrl || '',
+        },
+      }));
+      setQueue(queue, index, 'youtube');
+      await playQueueIndex(index);
+    });
+
+    const removeBtn = document.createElement('button');
+    removeBtn.textContent = '✕';
+    removeBtn.className = 'ghost-btn';
+    removeBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      if (!currentUser || !selectedPlaylistId) return;
+      await firebaseClient.removeTrackFromPlaylist(selectedPlaylistId, track.id);
+    });
+    li.append(removeBtn);
+    playlistTrackListEl.append(li);
+  });
+}
+
 async function refreshTracks() {
   tracks = await api.listTracks();
   if (currentIndex >= tracks.length) currentIndex = -1;
@@ -1208,7 +1359,25 @@ function renderYtResults(results) {
       }
     });
 
-    actions.append(play, downloadBtn, fav);
+    const addPlaylistBtn = document.createElement('button');
+    addPlaylistBtn.textContent = 'To playlist';
+    addPlaylistBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      if (!currentUser || !selectedPlaylistId) {
+        setPlayStatus('Select a playlist first');
+        return;
+      }
+      await firebaseClient.addTrackToPlaylist(selectedPlaylistId, {
+        id: item.id,
+        title: item.title,
+        artist: item.author || parseArtistFromTitle(item.title),
+        source: 'youtube',
+        youtubeUrl: item.url,
+      });
+      setPlayStatus('Added to playlist');
+    });
+
+    actions.append(play, downloadBtn, fav, addPlaylistBtn);
     li.append(info, actions);
     li.addEventListener('click', () => playYoutubeResult(item, currentYtResults, index));
     li.addEventListener('mouseenter', () => scheduleHoverPreload(item));
@@ -1388,14 +1557,20 @@ document.getElementById('exportFavBtn').addEventListener('click', async () => {
 });
 
 async function handleAuthState(user) {
+  if (unsubscribeProfile) { unsubscribeProfile(); unsubscribeProfile = null; }
+  if (unsubscribeFavorites) { unsubscribeFavorites(); unsubscribeFavorites = null; }
+  if (unsubscribePlaylists) { unsubscribePlaylists(); unsubscribePlaylists = null; }
   currentUser = user || null;
   if (!firebaseClient || !currentUser) {
     currentUserDoc = null;
     ytFavorites = [];
+    playlists = [];
+    selectedPlaylistId = '';
     stopAllPlayback();
     setAuthGateVisible(true);
     updateAuthUi(null);
     renderFavorites();
+    renderPlaylists();
     setGateStatus('Login required');
     return;
   }
@@ -1407,6 +1582,44 @@ async function handleAuthState(user) {
     applyCloudFavoritesToUi();
     forYouDirty = true;
     renderFavorites();
+    renderPlaylists();
+    languageSelect.value = currentUserDoc?.language || currentLanguage;
+    if (currentUserDoc?.language) {
+      currentLanguage = currentUserDoc.language;
+      localStorage.setItem(USER_LANG_KEY, currentLanguage);
+      applyLocalization();
+    }
+    applyTheme(currentUserDoc?.theme || localStorage.getItem(USER_THEME_KEY) || 'dark');
+
+    unsubscribeProfile = firebaseClient.listenUserProfile(currentUser.uid, (profile) => {
+      if (!profile) return;
+      currentUserDoc = { ...(currentUserDoc || {}), ...profile };
+      if (profile.nickname) setStoredNickname(profile.nickname);
+      if (profile.avatar) setStoredAvatar(profile.avatar);
+      updateAuthUi(currentUserDoc);
+      applyProfileVisuals();
+    });
+
+    unsubscribeFavorites = firebaseClient.listenFavorites(currentUser.uid, (items) => {
+      ytFavorites = items.map((item) => ({
+        id: item.trackId || item.id,
+        title: item.title || '',
+        artist: item.artist || '',
+        source: 'youtube',
+        youtubeUrl: item.youtubeUrl || '',
+        url: item.youtubeUrl || '',
+        duration: item.duration || '',
+        thumbnail: item.thumbnail || '',
+      }));
+      renderFavorites();
+    });
+
+    unsubscribePlaylists = firebaseClient.listenPlaylists(currentUser.uid, (items) => {
+      playlists = items || [];
+      if (!selectedPlaylistId && playlists.length) selectedPlaylistId = playlists[0].id;
+      if (selectedPlaylistId && !playlists.some((x) => x.id === selectedPlaylistId)) selectedPlaylistId = '';
+      renderPlaylists();
+    });
     setGateStatus('');
   } catch (error) {
     console.error(error);
@@ -1426,10 +1639,19 @@ function initializeAuthSystem() {
 
   setAuthGateVisible(true);
   setGateStatus('Checking session...');
+  setAuthGateMode('login');
+  currentLanguage = localStorage.getItem(USER_LANG_KEY) || 'ru';
+  languageSelect.value = currentLanguage;
+  applyLocalization();
+  applyTheme(localStorage.getItem(USER_THEME_KEY) || 'dark');
   bindAuthModalEvents();
 
   firebaseClient.onAuthStateChanged((user) => {
     handleAuthState(user);
+  });
+
+  gateSwitchModeBtn.addEventListener('click', () => {
+    setAuthGateMode(authGateMode === 'login' ? 'register' : 'login');
   });
 
   gateRegisterBtn.addEventListener('click', async () => {
@@ -1514,6 +1736,41 @@ function initializeAuthSystem() {
     }
   });
 
+  themeSelect.addEventListener('change', async () => {
+    const theme = themeSelect.value;
+    applyTheme(theme);
+    if (currentUser) await firebaseClient.updateUserProfile(currentUser.uid, { theme });
+  });
+
+  languageSelect.addEventListener('change', async () => {
+    currentLanguage = languageSelect.value === 'en' ? 'en' : 'ru';
+    localStorage.setItem(USER_LANG_KEY, currentLanguage);
+    applyLocalization();
+    if (currentUser) await firebaseClient.updateUserProfile(currentUser.uid, { language: currentLanguage });
+  });
+
+  createPlaylistBtn.addEventListener('click', async () => {
+    if (!currentUser) return;
+    const name = playlistNameInput.value.trim();
+    if (!name) return;
+    await firebaseClient.createPlaylist(currentUser.uid, name);
+    playlistNameInput.value = '';
+  });
+
+  renamePlaylistBtn.addEventListener('click', async () => {
+    if (!currentUser || !selectedPlaylistId) return;
+    const selected = playlists.find((p) => p.id === selectedPlaylistId);
+    const next = prompt('Playlist name', selected?.name || '');
+    if (!next) return;
+    await firebaseClient.renamePlaylist(selectedPlaylistId, next.trim());
+  });
+
+  deletePlaylistBtn.addEventListener('click', async () => {
+    if (!currentUser || !selectedPlaylistId) return;
+    await firebaseClient.deletePlaylist(selectedPlaylistId);
+    selectedPlaylistId = '';
+  });
+
   uploadAvatarBtn.addEventListener('click', () => avatarInput.click());
   avatarInput.addEventListener('change', async () => {
     const file = avatarInput.files?.[0];
@@ -1527,6 +1784,7 @@ function initializeAuthSystem() {
       });
       setStoredAvatar(avatarBase64);
       applyProfileVisuals();
+      if (currentUser) await firebaseClient.updateUserProfile(currentUser.uid, { avatar: avatarBase64 });
       setAuthStatus('Avatar updated');
     } catch (error) {
       console.error(error);

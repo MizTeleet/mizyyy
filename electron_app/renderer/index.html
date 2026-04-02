@@ -17,6 +17,7 @@
         <button class="nav-btn" data-tab="for-you" title="For You">✨</button>
         <button class="nav-btn" data-tab="music" title="Music">🎵</button>
         <button class="nav-btn" data-tab="favorites" title="Favorites">❤</button>
+        <button class="nav-btn" data-tab="playlists" title="Playlists">📚</button>
       </aside>
 
       <main class="content">
@@ -93,6 +94,29 @@
               </div>
             </div>
           </div>
+
+          <div class="tab-panel" id="tab-playlists">
+            <div class="panel glass">
+              <div class="panel-head">
+                <h3 data-i18n="playlists_title">Playlists</h3>
+                <div class="playlist-create">
+                  <input id="playlistNameInput" data-i18n-placeholder="playlist_name" placeholder="Playlist name" />
+                  <button id="createPlaylistBtn" data-i18n="create">Create</button>
+                </div>
+              </div>
+              <ul id="playlistList" class="track-list"></ul>
+            </div>
+            <div class="panel glass">
+              <div class="panel-head">
+                <span id="playlistCurrentName" data-i18n="playlist_tracks">Playlist tracks</span>
+                <div class="playlist-edit-actions">
+                  <button id="renamePlaylistBtn" class="ghost-btn" data-i18n="rename">Rename</button>
+                  <button id="deletePlaylistBtn" class="ghost-btn" data-i18n="delete">Delete</button>
+                </div>
+              </div>
+              <ul id="playlistTrackList" class="track-list"></ul>
+            </div>
+          </div>
         </section>
 
         <footer class="dock glass">
@@ -125,14 +149,15 @@
       <section class="auth-gate-card glass">
         <div class="auth-gate-logo">LM</div>
         <h1>LeetMusic</h1>
-        <p>Sign in to continue</p>
-        <input id="gateNickname" placeholder="Nickname (for register)" />
-        <input id="gateEmail" type="email" placeholder="Email" />
-        <input id="gatePassword" type="password" placeholder="Password" />
+        <p id="gateSubtitle" data-i18n="sign_in_continue">Sign in to continue</p>
+        <input id="gateNickname" data-i18n-placeholder="nickname_register" placeholder="Nickname (for register)" />
+        <input id="gateEmail" type="email" data-i18n-placeholder="email" placeholder="Email" />
+        <input id="gatePassword" type="password" data-i18n-placeholder="password" placeholder="Password" />
         <div class="auth-gate-actions">
-          <button id="gateLoginBtn">Login</button>
-          <button id="gateRegisterBtn">Register</button>
+          <button id="gateLoginBtn" data-i18n="login">Login</button>
+          <button id="gateRegisterBtn" data-i18n="register">Register</button>
         </div>
+        <button id="gateSwitchModeBtn" class="ghost-btn" data-i18n="switch_to_register">Switch to Register</button>
         <div id="gateStatus" class="auth-gate-status"></div>
         <div id="gateSpinner" class="auth-gate-spinner" hidden></div>
       </section>
@@ -161,6 +186,26 @@
           <img id="userAvatar" class="auth-avatar" alt="avatar" />
           <input id="profileNickname" placeholder="Nickname" />
           <input id="profileEmail" disabled />
+          <div class="settings-grid">
+            <label>
+              <span data-i18n="theme">Theme</span>
+              <select id="themeSelect">
+                <option value="dark" data-i18n="theme_dark">Dark</option>
+                <option value="light" data-i18n="theme_light">Light</option>
+              </select>
+            </label>
+            <label>
+              <span data-i18n="language">Language</span>
+              <select id="languageSelect">
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+          </div>
+          <div class="support-block">
+            <strong data-i18n="support_contact">Support / Contact</strong>
+            <span>Telegram ID: 5724486554</span>
+          </div>
           <div class="auth-actions">
             <button id="saveProfileBtn">Save profile</button>
             <button id="uploadAvatarBtn" class="ghost-btn">Change avatar</button>
