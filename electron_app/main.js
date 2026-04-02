@@ -157,18 +157,32 @@ async function exportTrackCard(win, payload) {
 
 async function searchYouTube(query) {
   if (!query || !query.trim()) return [];
-  const results = await ytsr(query, { limit: 60 });
-  return results.items
-    .filter((item) => item.type === 'video')
-    .slice(0, 30)
-    .map((v) => ({
-      id: v.id,
-      title: v.title,
-      author: v.author?.name || '',
-      duration: v.duration || '',
-      url: v.url,
-      thumbnail: v.bestThumbnail?.url || '',
-    }));
+  try {
+    console.log(`[search] query: ${query}`);
+    const filters = await ytsr.getFilters(query);
+    const typeFilter = filters?.get('Type');
+    const videoFilter = typeFilter?.get('Video');
+    const results = videoFilter?.url
+      ? await ytsr(videoFilter.url, { limit: 30 })
+      : await ytsr(query, { limit: 30 });
+
+    const items = (results?.items || [])
+      .filter((item) => item.type === 'video')
+      .slice(0, 30)
+      .map((v) => ({
+        id: v.id,
+        title: v.title,
+        author: v.author?.name || '',
+        duration: v.duration || '',
+        url: v.url,
+        thumbnail: v.bestThumbnail?.url || '',
+      }));
+    console.log(`[search] results: ${items.length}`);
+    return items;
+  } catch (error) {
+    console.error('[search] failed:', error);
+    return [];
+  }
 }
 
 async function getYouTubeStreamUrl(videoUrl) {
@@ -239,6 +253,7 @@ ipcMain.handle('tracks:meta-save', async (_event, trackId, patch) => saveTrackMe
 ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fromWebContents(event.sender)));
 ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
 ipcMain.handle('yt:search', async (_event, query) => searchYouTube(query));
+ipcMain.handle('search', async (_event, query) => searchYouTube(query));
 ipcMain.handle('yt:stream-url', async (_event, videoUrl) => getYouTubeStreamUrl(videoUrl));
 ipcMain.handle('yt:download', async (event, videoUrl, title) => downloadYouTubeAudioWithDialog(BrowserWindow.fromWebContents(event.sender), videoUrl, title));
 

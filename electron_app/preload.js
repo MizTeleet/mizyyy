@@ -11,3 +11,7 @@ contextBridge.exposeInMainWorld('leetMusicApi', {
   ytStreamUrl: (videoUrl) => ipcRenderer.invoke('yt:stream-url', videoUrl),
   ytDownload: (videoUrl, title) => ipcRenderer.invoke('yt:download', videoUrl, title),
 });
+
+contextBridge.exposeInMainWorld('api', {
+  search: (query) => ipcRenderer.invoke('search', query),
+});
