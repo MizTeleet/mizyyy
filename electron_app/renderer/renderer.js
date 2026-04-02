@@ -1,5 +1,4 @@
-const api = window.leetMusicApi;
-const ipcSearchApi = window.api;
+const api = window.api;
 const firebaseClient = window.firebaseClient;
 const audio = document.getElementById('audio');
 
@@ -685,7 +684,7 @@ async function searchWithCache(query) {
     return cacheItem.items;
   }
 
-  const items = (await (ipcSearchApi?.search?.(query) || api.ytSearch(query))).slice(0, 5);
+  const items = (await api.search(query)).slice(0, 5);
   recommendationCache[query.toLowerCase()] = { savedAt: Date.now(), items };
   persistRecommendationCache();
   return items;
@@ -1392,7 +1391,7 @@ document.getElementById('ytSearchBtn').addEventListener('click', async () => {
   const query = document.getElementById('ytSearchInput').value.trim();
   ytResultsEl.innerHTML = '';
   if (!query) return;
-  const results = (await (ipcSearchApi?.search?.(query) || api.ytSearch(query))).slice(0, 30);
+  const results = (await api.search(query)).slice(0, 30);
   renderYtResults(results);
 
   currentYtResults.slice(0, 3).forEach((item) => {
