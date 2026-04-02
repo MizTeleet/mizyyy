@@ -88,6 +88,9 @@ let currentOnlineIndex = -1;
 let currentSourceType = 'none';
 let currentPlayingId = '';
 let currentYtResults = [];
+let currentQueue = [];
+let currentQueueIndex = -1;
+let currentQueueSource = 'none';
 const audioManager = {
   currentSource: 'none',
   currentTrack: null,
@@ -109,6 +112,21 @@ function refreshIcons() {
 
 function setPlayStatus(message = '') {
   playStatusEl.textContent = message;
+}
+
+function addYoutubeFavorite(item) {
+  if (ytFavorites.some((x) => x.id === item.id)) return;
+  ytFavorites.push({
+    id: item.id,
+    title: item.title,
+    artist: item.author || parseArtistFromTitle(item.title),
+    source: 'youtube',
+    youtubeUrl: item.url,
+    url: item.url,
+    duration: item.duration || '',
+    thumbnail: item.thumbnail || '',
+    description: '',
+  });
 }
 
 function rememberPreparedKey(key, prepared) {
@@ -312,11 +330,14 @@ function collectCloudFavorites() {
     }));
 
   const onlineFavoriteTracks = ytFavorites.map((item) => ({
-    id: `online:${item.id}`,
+    id: `youtube:${item.id}`,
     title: item.title,
-    source: 'online',
+    artist: item.artist || item.author || '',
+    source: 'youtube',
     duration: item.duration || '',
-    url: item.url || '',
+    youtubeUrl: item.youtubeUrl || item.url || '',
+    url: item.youtubeUrl || item.url || '',
+    thumbnail: item.thumbnail || '',
   }));
 
   return [...localFavoriteTracks, ...onlineFavoriteTracks];
@@ -349,12 +370,16 @@ function makeHistoryEntry({ id, title, artist = '', source = 'local' }) {
 function applyCloudFavoritesToUi() {
   if (!currentUserDoc || !Array.isArray(currentUserDoc.favorites)) return;
   ytFavorites = currentUserDoc.favorites
-    .filter((item) => item.source === 'online')
+    .filter((item) => item.source === 'youtube' || item.source === 'online')
     .map((item) => ({
-      id: (item.id || '').replace(/^online:/, ''),
+      id: (item.id || '').replace(/^online:/, '').replace(/^youtube:/, ''),
       title: item.title || '',
+      artist: item.artist || '',
+      source: 'youtube',
       duration: item.duration || '',
-      url: item.url || '',
+      youtubeUrl: item.youtubeUrl || item.url || '',
+      url: item.youtubeUrl || item.url || '',
+      thumbnail: item.thumbnail || '',
       description: '',
     }));
   renderFavorites();
@@ -553,7 +578,7 @@ function createForYouTrackItem(item, index) {
   const fav = document.createElement('button');
   fav.textContent = 'Add to favorites';
   fav.addEventListener('click', () => {
-    if (!ytFavorites.some((x) => x.id === item.id)) ytFavorites.push({ ...item, description: '' });
+    addYoutubeFavorite(item);
     updateBehaviorEntry({
       title: item.title,
       artist: item.author || parseArtistFromTitle(item.title),
@@ -696,6 +721,80 @@ function setActiveTrackState(track) {
   currentPlayingId = `${track.source === 'youtube' ? 'yt' : 'local'}:${track.id}`;
 }
 
+function setQueue(items, index, source) {
+  currentQueue = Array.isArray(items) ? items : [];
+  currentQueueIndex = index;
+  currentQueueSource = source || 'none';
+}
+
+function toLocalQueueItems() {
+  return tracks.map((track, index) => ({
+    id: track.id,
+    title: track.customTitle || track.title,
+    source: 'local',
+    localIndex: index,
+  }));
+}
+
+function toYoutubeQueueItems(list) {
+  return list.map((item) => ({
+    id: item.id,
+    title: item.title,
+    source: 'youtube',
+    youtubeItem: item,
+  }));
+}
+
+function buildFavoriteQueue(source) {
+  const localItems = tracks
+    .filter((track) => track.favorite)
+    .map((track, index) => ({
+      id: track.id,
+      title: track.customTitle || track.title,
+      artist: parseArtistFromTitle(track.customTitle || track.title),
+      source: 'local',
+      localIndex: tracks.findIndex((x) => x.id === track.id),
+    }));
+
+  const youtubeItems = ytFavorites.map((item) => ({
+    id: item.id,
+    title: item.title,
+    artist: item.artist || item.author || parseArtistFromTitle(item.title),
+    source: 'youtube',
+    youtubeItem: {
+      ...item,
+      url: item.youtubeUrl || item.url,
+      author: item.artist || item.author || '',
+    },
+  }));
+
+  const sourceFiltered = [...localItems, ...youtubeItems].filter((item) => item.source === source);
+  return sourceFiltered;
+}
+
+async function playQueueIndex(index) {
+  if (index < 0 || index >= currentQueue.length) return;
+  const item = currentQueue[index];
+  currentQueueIndex = index;
+  if (item.source === 'local') {
+    await playTrack(item.localIndex, { keepQueue: true });
+    return;
+  }
+  if (item.source === 'youtube') {
+    await playYoutubeResult(item.youtubeItem, currentQueue.map((x) => x.youtubeItem).filter(Boolean), index, { keepQueue: true });
+  }
+}
+
+async function playNextFromQueue() {
+  if (!currentQueue.length) return;
+  const nextIndex = currentQueueIndex + 1;
+  if (nextIndex >= currentQueue.length) {
+    setPlaybackVisualState(false);
+    return;
+  }
+  await playQueueIndex(nextIndex);
+}
+
 function stopAllPlayback() {
   audio.pause();
   audio.removeAttribute('src');
@@ -748,8 +847,22 @@ function renderFavorites() {
   favListEl.innerHTML = '';
   const localFavTracks = tracks.filter((t) => t.favorite);
   const allFav = [
-    ...localFavTracks.map((t) => ({ id: t.id, title: t.customTitle || t.title, isYoutube: false })),
-    ...ytFavorites.map((t) => ({ id: `yt:${t.id}`, title: `Online: ${t.title}`, isYoutube: true })),
+    ...localFavTracks.map((t) => ({
+      id: t.id,
+      title: t.customTitle || t.title,
+      artist: parseArtistFromTitle(t.customTitle || t.title),
+      source: 'local',
+      localIndex: tracks.findIndex((x) => x.id === t.id),
+      trackId: t.id,
+    })),
+    ...ytFavorites.map((t) => ({
+      id: t.id,
+      title: t.title,
+      artist: t.artist || t.author || parseArtistFromTitle(t.title),
+      source: 'youtube',
+      youtubeItem: { ...t, url: t.youtubeUrl || t.url, author: t.artist || t.author || '' },
+      trackId: `yt:${t.id}`,
+    })),
   ];
 
   if (!allFav.length) {
@@ -759,11 +872,19 @@ function renderFavorites() {
     return;
   }
 
-  allFav.forEach((track) => {
+  allFav.forEach((track, index) => {
     const li = document.createElement('li');
-    li.textContent = track.title;
-    if (track.id === selectedFavId) li.classList.add('active');
-    li.addEventListener('click', () => selectFavorite(track.id));
+    li.innerHTML = `<strong>${track.title}</strong><br/><small>${track.artist || ''}</small>`;
+    if (track.trackId === selectedFavId) li.classList.add('active');
+    li.addEventListener('click', async () => {
+      selectedFavId = track.trackId;
+      selectFavorite(track.trackId);
+      const queue = buildFavoriteQueue(track.source);
+      const queueIndex = queue.findIndex((item) => item.id === track.id);
+      if (queueIndex === -1) return;
+      setQueue(queue, queueIndex, track.source);
+      await playQueueIndex(queueIndex);
+    });
     favListEl.append(li);
   });
 }
@@ -840,7 +961,7 @@ function fadeInCurrentTrack(durationSeconds = 0.8) {
   masterGainNode.gain.linearRampToValueAtTime(targetGain, now + durationSeconds);
 }
 
-async function playTrack(index) {
+async function playTrack(index, options = {}) {
   if (!tracks[index]) return;
   const track = tracks[index];
   currentIndex = index;
@@ -850,6 +971,10 @@ async function playTrack(index) {
     title: track.customTitle || track.title,
     source: 'local',
   });
+  if (!options.keepQueue) {
+    const queue = toLocalQueueItems();
+    setQueue(queue, index, 'local');
+  }
   currentOnlineQueue = [];
   currentOnlineIndex = -1;
   const prepared = createPreparedAudio(`local:${track.id}`, track.fileUrl);
@@ -883,7 +1008,7 @@ async function playTrack(index) {
   renderYtResults(currentYtResults);
 }
 
-async function playYoutubeResult(item, queue = null, index = -1) {
+async function playYoutubeResult(item, queue = null, index = -1, options = {}) {
   stopAllPlayback();
   setActiveTrackState({
     id: item.id,
@@ -891,6 +1016,10 @@ async function playYoutubeResult(item, queue = null, index = -1) {
     source: 'youtube',
   });
   currentIndex = -1;
+  if (!options.keepQueue && Array.isArray(queue)) {
+    const ytQueue = toYoutubeQueueItems(queue);
+    setQueue(ytQueue, index, 'youtube');
+  }
   if (Array.isArray(queue)) {
     currentOnlineQueue = queue;
     currentOnlineIndex = index;
@@ -925,7 +1054,7 @@ async function playYoutubeResult(item, queue = null, index = -1) {
     source: 'online',
   }));
   renderTracks();
-  renderYtResults(currentOnlineQueue.length ? currentOnlineQueue : currentYtResults);
+  renderYtResults(currentYtResults);
 }
 
 function switchTab(tab) {
@@ -959,13 +1088,14 @@ favToggleBtn.addEventListener('click', async () => {
 });
 
 document.getElementById('prevBtn').addEventListener('click', () => {
-  if (!tracks.length) return;
-  playTrack((currentIndex - 1 + tracks.length) % tracks.length);
+  if (!currentQueue.length) return;
+  const prevIndex = currentQueueIndex - 1;
+  if (prevIndex < 0) return;
+  playQueueIndex(prevIndex);
 });
 
 document.getElementById('nextBtn').addEventListener('click', () => {
-  if (!tracks.length) return;
-  playTrack((currentIndex + 1) % tracks.length);
+  playNextFromQueue();
 });
 
 document.querySelectorAll('.nav-btn[data-tab]').forEach((btn) => btn.addEventListener('click', () => switchTab(btn.dataset.tab)));
@@ -1010,7 +1140,7 @@ function renderYtResults(results) {
     fav.textContent = 'Add to favorites';
     fav.addEventListener('click', (event) => {
       event.stopPropagation();
-      if (!ytFavorites.some((x) => x.id === item.id)) ytFavorites.push({ ...item, description: '' });
+      addYoutubeFavorite(item);
       updateBehaviorEntry({
         title: item.title,
         artist: item.author || parseArtistFromTitle(item.title),
@@ -1022,7 +1152,27 @@ function renderYtResults(results) {
       switchTab('favorites');
     });
 
-    actions.append(play, fav);
+    const downloadBtn = document.createElement('button');
+    downloadBtn.textContent = 'Download';
+    downloadBtn.addEventListener('click', async (event) => {
+      event.stopPropagation();
+      const initialLabel = downloadBtn.textContent;
+      downloadBtn.disabled = true;
+      downloadBtn.textContent = 'Downloading...';
+      try {
+        const result = await api.ytDownload(item.url, item.title);
+        if (result?.canceled) setPlayStatus('Download canceled');
+        else if (result?.ok) setPlayStatus('MP3 downloaded');
+        else setPlayStatus('Download failed');
+      } catch {
+        setPlayStatus('Download failed');
+      } finally {
+        downloadBtn.disabled = false;
+        downloadBtn.textContent = initialLabel;
+      }
+    });
+
+    actions.append(play, downloadBtn, fav);
     li.append(info, actions);
     li.addEventListener('click', () => playYoutubeResult(item, currentYtResults, index));
     li.addEventListener('mouseenter', () => scheduleHoverPreload(item));
@@ -1077,16 +1227,13 @@ audio.addEventListener('timeupdate', () => {
 });
 
 audio.addEventListener('ended', () => {
-  if (autoPlayNextEnabled && currentSourceType === 'online' && currentOnlineQueue.length) {
-    const nextIndex = currentOnlineIndex + 1;
-    if (nextIndex >= 0 && nextIndex < currentOnlineQueue.length) {
-      playYoutubeResult(currentOnlineQueue[nextIndex], currentOnlineQueue, nextIndex);
-      return;
-    }
+  if (autoPlayNextEnabled && currentQueue.length) {
+    playNextFromQueue();
+    return;
   }
   setPlaybackVisualState(false);
   renderTracks();
-  renderYtResults(currentOnlineQueue.length ? currentOnlineQueue : currentYtResults);
+  renderYtResults(currentYtResults);
 });
 
 audio.addEventListener('pause', () => setPlaybackVisualState(false));

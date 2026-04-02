@@ -6,6 +6,7 @@ const { pathToFileURL } = require('url');
 const ytsr = require('ytsr');
 
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
+const INVALID_FILENAME_CHARS = /[<>:"/\\|?*\x00-\x1F]/g;
 
 function getMusicDir() {
   const systemMusicDir = app.getPath('music');
@@ -192,9 +193,29 @@ async function getYouTubeStreamUrl(videoUrl) {
 }
 
 async function downloadYouTubeAudio(videoUrl) {
-  const musicDir = await ensureMusicDir();
-  await runYtDlp(['-x', '--audio-format', 'mp3', '--audio-quality', '0', '-o', path.join(musicDir, '%(title)s.%(ext)s'), videoUrl]);
-  return await listTracks();
+  return downloadYouTubeAudioWithDialog(null, videoUrl, 'track');
+}
+
+function sanitizeFileName(name) {
+  return (name || 'track')
+    .replace(INVALID_FILENAME_CHARS, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120) || 'track';
+}
+
+async function downloadYouTubeAudioWithDialog(win, videoUrl, title) {
+  const defaultName = `${sanitizeFileName(title)}.mp3`;
+  const result = await dialog.showSaveDialog(win, {
+    title: 'Сохранить MP3',
+    defaultPath: path.join(app.getPath('music'), defaultName),
+    filters: [{ name: 'MP3', extensions: ['mp3'] }],
+  });
+  if (result.canceled || !result.filePath) return { ok: false, canceled: true };
+
+  const target = result.filePath.toLowerCase().endsWith('.mp3') ? result.filePath : `${result.filePath}.mp3`;
+  await runYtDlp(['-x', '--audio-format', 'mp3', '--audio-quality', '0', '-o', target, videoUrl]);
+  return { ok: true, filePath: target };
 }
 
 function createWindow() {
@@ -223,7 +244,7 @@ ipcMain.handle('tracks:pick-cover', async (event) => pickCover(BrowserWindow.fro
 ipcMain.handle('tracks:export-card', async (event, payload) => exportTrackCard(BrowserWindow.fromWebContents(event.sender), payload));
 ipcMain.handle('yt:search', async (_event, query) => searchYouTube(query));
 ipcMain.handle('yt:stream-url', async (_event, videoUrl) => getYouTubeStreamUrl(videoUrl));
-ipcMain.handle('yt:download', async (_event, videoUrl) => downloadYouTubeAudio(videoUrl));
+ipcMain.handle('yt:download', async (event, videoUrl, title) => downloadYouTubeAudioWithDialog(BrowserWindow.fromWebContents(event.sender), videoUrl, title));
 
 app.whenReady().then(async () => {
   await ensureMusicDir();

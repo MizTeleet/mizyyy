@@ -9,5 +9,5 @@ contextBridge.exposeInMainWorld('leetMusicApi', {
   exportTrackCard: (payload) => ipcRenderer.invoke('tracks:export-card', payload),
   ytSearch: (query) => ipcRenderer.invoke('yt:search', query),
   ytStreamUrl: (videoUrl) => ipcRenderer.invoke('yt:stream-url', videoUrl),
-  ytDownload: (videoUrl) => ipcRenderer.invoke('yt:download', videoUrl),
+  ytDownload: (videoUrl, title) => ipcRenderer.invoke('yt:download', videoUrl, title),
 });
