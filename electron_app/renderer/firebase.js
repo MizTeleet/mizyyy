@@ -12,6 +12,7 @@
 
   const auth = firebase.auth();
   const db = firebase.firestore();
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
 
   function userRef(uid) {
     return db.collection('users').doc(uid);

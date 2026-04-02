@@ -43,6 +43,14 @@ const loginBtn = document.getElementById('loginBtn');
 const logoutBtn = document.getElementById('logoutBtn');
 const uploadAvatarBtn = document.getElementById('uploadAvatarBtn');
 const avatarInput = document.getElementById('avatarInput');
+const authGate = document.getElementById('authGate');
+const gateNicknameInput = document.getElementById('gateNickname');
+const gateEmailInput = document.getElementById('gateEmail');
+const gatePasswordInput = document.getElementById('gatePassword');
+const gateLoginBtn = document.getElementById('gateLoginBtn');
+const gateRegisterBtn = document.getElementById('gateRegisterBtn');
+const gateStatus = document.getElementById('gateStatus');
+const gateSpinner = document.getElementById('gateSpinner');
 
 const favTitleInput = document.getElementById('favTitleInput');
 const favDescInput = document.getElementById('favDescInput');
@@ -239,6 +247,31 @@ function setAuthStatus(message) {
   authStatusEl.textContent = message;
 }
 
+function setGateStatus(message) {
+  gateStatus.textContent = message || '';
+}
+
+function setAuthLoadingState(isLoading) {
+  [gateLoginBtn, gateRegisterBtn, registerBtn, loginBtn].forEach((button) => {
+    if (button) button.disabled = Boolean(isLoading);
+  });
+  gateSpinner.hidden = !isLoading;
+}
+
+function setAuthGateVisible(isVisible) {
+  if (isVisible) {
+    authGate.hidden = false;
+    document.body.classList.add('auth-locked');
+  } else {
+    authGate.hidden = true;
+    document.body.classList.remove('auth-locked');
+  }
+}
+
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
 function getStoredNickname() {
   return localStorage.getItem(USER_NICKNAME_KEY) || '';
 }
@@ -386,7 +419,10 @@ function applyCloudFavoritesToUi() {
 }
 
 function bindAuthModalEvents() {
-  profileBtn.addEventListener('click', openAuthModal);
+  profileBtn.addEventListener('click', () => {
+    if (!currentUser) return;
+    openAuthModal();
+  });
   authCloseBtn.addEventListener('click', closeAuthModal);
   authBackdrop.addEventListener('click', closeAuthModal);
   window.addEventListener('keydown', (event) => {
@@ -1356,33 +1392,84 @@ async function handleAuthState(user) {
   if (!firebaseClient || !currentUser) {
     currentUserDoc = null;
     ytFavorites = [];
+    stopAllPlayback();
+    setAuthGateVisible(true);
     updateAuthUi(null);
     renderFavorites();
+    setGateStatus('Login required');
     return;
   }
 
   try {
     currentUserDoc = await firebaseClient.ensureUserDocument(currentUser, currentUser.displayName || '');
+    setAuthGateVisible(false);
     updateAuthUi(currentUserDoc);
     applyCloudFavoritesToUi();
     forYouDirty = true;
     renderFavorites();
+    setGateStatus('');
   } catch (error) {
     console.error(error);
     setAuthStatus('Unable to load cloud profile');
+    setAuthGateVisible(true);
+    setGateStatus('Unable to load profile');
   }
 }
 
 function initializeAuthSystem() {
   if (!firebaseClient) {
     setAuthStatus('Firebase not initialized');
+    setAuthGateVisible(true);
+    setGateStatus('Firebase unavailable');
     return;
   }
 
+  setAuthGateVisible(true);
+  setGateStatus('Checking session...');
   bindAuthModalEvents();
 
   firebaseClient.onAuthStateChanged((user) => {
     handleAuthState(user);
+  });
+
+  gateRegisterBtn.addEventListener('click', async () => {
+    const email = gateEmailInput.value.trim();
+    const password = gatePasswordInput.value;
+    const nickname = gateNicknameInput.value.trim();
+    if (!isValidEmail(email)) return setGateStatus('Enter a valid email');
+    if ((password || '').length < 6) return setGateStatus('Password must be at least 6 chars');
+    try {
+      setAuthLoadingState(true);
+      setGateStatus('Creating account...');
+      await firebaseClient.register(email, password, nickname);
+      setStoredNickname(nickname);
+      gatePasswordInput.value = '';
+      setGateStatus('Registration successful');
+    } catch (error) {
+      console.error(error);
+      setGateStatus(error.message || 'Registration failed');
+    } finally {
+      setAuthLoadingState(false);
+    }
+  });
+
+  gateLoginBtn.addEventListener('click', async () => {
+    const email = gateEmailInput.value.trim();
+    const password = gatePasswordInput.value;
+    if (!isValidEmail(email)) return setGateStatus('Enter a valid email');
+    if ((password || '').length < 6) return setGateStatus('Password must be at least 6 chars');
+    try {
+      setAuthLoadingState(true);
+      setGateStatus('Signing in...');
+      await firebaseClient.login(email, password);
+      gatePasswordInput.value = '';
+      setGateStatus('Login successful');
+    } catch (error) {
+      console.error(error);
+      setGateStatus(error.message || 'Login failed');
+    } finally {
+      setAuthLoadingState(false);
+    }
   });
 
   registerBtn.addEventListener('click', async () => {
@@ -1419,6 +1506,8 @@ function initializeAuthSystem() {
       await firebaseClient.logout();
       setAuthStatus('Logged out');
       closeAuthModal();
+      setAuthGateVisible(true);
+      setGateStatus('Login required');
     } catch (error) {
       console.error(error);
       setAuthStatus(error.message || 'Logout failed');

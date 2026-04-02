@@ -22,6 +22,8 @@ body {
   background: radial-gradient(120% 100% at 60% -5%, #14356e 0%, #050911 60%);
 }
 body.modal-open { overflow: hidden; }
+body.auth-locked { overflow: hidden; }
+body.auth-locked .app-shell { filter: blur(3px) brightness(0.55); pointer-events: none; user-select: none; }
 
 .app-shell { display: flex; height: 100vh; padding: 12px; gap: 12px; }
 .glass {
@@ -48,6 +50,57 @@ body.modal-open { overflow: hidden; }
 .nav-btn.active { color: #ffd348; background: rgba(255, 211, 72, 0.14); }
 
 .content { flex: 1; min-width: 0; display: grid; grid-template-rows: 1fr auto; gap: 10px; }
+
+.auth-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: grid;
+  place-items: center;
+}
+.auth-gate[hidden] { display: none; }
+.auth-gate-backdrop { position: absolute; inset: 0; background: rgba(2, 5, 12, .78); backdrop-filter: blur(8px); }
+.auth-gate-card {
+  position: relative;
+  z-index: 1;
+  width: min(430px, 92vw);
+  border-radius: 22px;
+  padding: 24px;
+  display: grid;
+  gap: 12px;
+  animation: modalFadeIn .28s ease, modalZoomIn .28s ease;
+}
+.auth-gate-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  background: linear-gradient(160deg, #7a95f9, #6f49d8);
+}
+.auth-gate-card h1 { margin: 0; }
+.auth-gate-card p { margin: 0 0 6px; color: var(--muted); }
+.auth-gate-card input {
+  width: 100%;
+  border: 1px solid rgba(140,176,232,.28);
+  background: rgba(7,16,34,.78);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 11px 12px;
+}
+.auth-gate-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.auth-gate-status { color: var(--muted); min-height: 18px; font-size: .9rem; }
+.auth-gate-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.2);
+  border-top-color: #ffd348;
+  animation: authSpin .8s linear infinite;
+  justify-self: center;
+}
+@keyframes authSpin { to { transform: rotate(360deg); } }
 
 .auth-modal[hidden] { display: none; }
 .auth-modal { position: fixed; inset: 0; z-index: 120; display: grid; place-items: center; }

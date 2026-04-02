@@ -120,6 +120,24 @@
       </main>
     </div>
 
+    <div id="authGate" class="auth-gate">
+      <div class="auth-gate-backdrop"></div>
+      <section class="auth-gate-card glass">
+        <div class="auth-gate-logo">LM</div>
+        <h1>LeetMusic</h1>
+        <p>Sign in to continue</p>
+        <input id="gateNickname" placeholder="Nickname (for register)" />
+        <input id="gateEmail" type="email" placeholder="Email" />
+        <input id="gatePassword" type="password" placeholder="Password" />
+        <div class="auth-gate-actions">
+          <button id="gateLoginBtn">Login</button>
+          <button id="gateRegisterBtn">Register</button>
+        </div>
+        <div id="gateStatus" class="auth-gate-status"></div>
+        <div id="gateSpinner" class="auth-gate-spinner" hidden></div>
+      </section>
+    </div>
+
     <div id="authModal" class="auth-modal" hidden>
       <div id="authBackdrop" class="auth-backdrop"></div>
       <section class="auth-dialog glass">
