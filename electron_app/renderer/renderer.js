@@ -88,6 +88,10 @@ let currentOnlineIndex = -1;
 let currentSourceType = 'none';
 let currentPlayingId = '';
 let currentYtResults = [];
+const audioManager = {
+  currentSource: 'none',
+  currentTrack: null,
+};
 
 const preparedAudioCache = new Map();
 const preparedAudioOrder = [];
@@ -634,7 +638,8 @@ function fmt(sec) {
 }
 
 function activeTrack() {
-  return tracks[currentIndex] || null;
+  if (audioManager.currentSource !== 'local') return null;
+  return tracks.find((track) => `local:${track.id}` === currentPlayingId) || null;
 }
 
 function setFogPlaying(playing) {
@@ -680,22 +685,40 @@ function setPlaybackVisualState(isPlaying) {
   else stopHeroBeatAnimation();
 }
 
+function setActiveTrackState(track) {
+  audioManager.currentTrack = track;
+  audioManager.currentSource = track?.source || 'none';
+  currentSourceType = track?.source === 'youtube' ? 'online' : track?.source || 'none';
+  if (!track) {
+    currentPlayingId = '';
+    return;
+  }
+  currentPlayingId = `${track.source === 'youtube' ? 'yt' : 'local'}:${track.id}`;
+}
+
+function stopAllPlayback() {
+  audio.pause();
+  audio.removeAttribute('src');
+  audio.load();
+  setPlayStatus('');
+  setPlaybackVisualState(false);
+  setActiveTrackState(null);
+}
+
 async function togglePlayback() {
-  if (currentIndex === -1 && tracks.length) {
-    await playTrack(0);
+  if (audioManager.currentSource !== 'none' && audio.src) {
+    if (audio.paused) {
+      if (audioCtx?.state === 'suspended') await audioCtx.resume();
+      audio.play().catch(() => {});
+      setPlaybackVisualState(true);
+    } else {
+      audio.pause();
+      setPlaybackVisualState(false);
+    }
     return;
   }
 
-  if (!audio.src) return;
-
-  if (audio.paused) {
-    if (audioCtx?.state === 'suspended') await audioCtx.resume();
-    audio.play().catch(() => {});
-    setPlaybackVisualState(true);
-  } else {
-    audio.pause();
-    setPlaybackVisualState(false);
-  }
+  if (tracks.length) await playTrack(0);
 }
 
 function renderTracks() {
@@ -819,10 +842,14 @@ function fadeInCurrentTrack(durationSeconds = 0.8) {
 
 async function playTrack(index) {
   if (!tracks[index]) return;
-  currentIndex = index;
   const track = tracks[index];
-  currentSourceType = 'local';
-  currentPlayingId = `local:${track.id}`;
+  currentIndex = index;
+  stopAllPlayback();
+  setActiveTrackState({
+    id: track.id,
+    title: track.customTitle || track.title,
+    source: 'local',
+  });
   currentOnlineQueue = [];
   currentOnlineIndex = -1;
   const prepared = createPreparedAudio(`local:${track.id}`, track.fileUrl);
@@ -857,8 +884,13 @@ async function playTrack(index) {
 }
 
 async function playYoutubeResult(item, queue = null, index = -1) {
-  currentSourceType = 'online';
-  currentPlayingId = `yt:${item.id}`;
+  stopAllPlayback();
+  setActiveTrackState({
+    id: item.id,
+    title: item.title,
+    source: 'youtube',
+  });
+  currentIndex = -1;
   if (Array.isArray(queue)) {
     currentOnlineQueue = queue;
     currentOnlineIndex = index;
