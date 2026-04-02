@@ -238,12 +238,14 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      devTools: true,
     },
   });
 
   win.setMenuBarVisibility(false);
 
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  win.webContents.openDevTools();
 }
 
 ipcMain.handle('tracks:list', async () => listTracks());

@@ -1656,6 +1656,7 @@ function initializeAuthSystem() {
   });
 
   gateRegisterBtn.addEventListener('click', async () => {
+    console.log('[auth] Register clicked (gate)');
     const email = gateEmailInput.value.trim();
     const password = gatePasswordInput.value;
     const nickname = gateNicknameInput.value.trim();
@@ -1665,11 +1666,12 @@ function initializeAuthSystem() {
       setAuthLoadingState(true);
       setGateStatus('Creating account...');
       await firebaseClient.register(email, password, nickname);
+      console.log('[auth] Register success (gate)');
       setStoredNickname(nickname);
       gatePasswordInput.value = '';
       setGateStatus('Registration successful');
     } catch (error) {
-      console.error(error);
+      console.error('[auth] Firebase error (gate register):', error);
       setGateStatus(error.message || 'Registration failed');
     } finally {
       setAuthLoadingState(false);
@@ -1677,6 +1679,7 @@ function initializeAuthSystem() {
   });
 
   gateLoginBtn.addEventListener('click', async () => {
+    console.log('[auth] Login clicked (gate)');
     const email = gateEmailInput.value.trim();
     const password = gatePasswordInput.value;
     if (!isValidEmail(email)) return setGateStatus('Enter a valid email');
@@ -1685,10 +1688,11 @@ function initializeAuthSystem() {
       setAuthLoadingState(true);
       setGateStatus('Signing in...');
       await firebaseClient.login(email, password);
+      console.log('[auth] Login success (gate)');
       gatePasswordInput.value = '';
       setGateStatus('Login successful');
     } catch (error) {
-      console.error(error);
+      console.error('[auth] Firebase error (gate login):', error);
       setGateStatus(error.message || 'Login failed');
     } finally {
       setAuthLoadingState(false);
@@ -1696,6 +1700,7 @@ function initializeAuthSystem() {
   });
 
   registerBtn.addEventListener('click', async () => {
+    console.log('[auth] Register clicked (modal)');
     try {
       await firebaseClient.register(
         authEmailInput.value.trim(),
@@ -1705,21 +1710,24 @@ function initializeAuthSystem() {
       setStoredNickname(authNameInput.value.trim());
       applyProfileVisuals();
       authPasswordInput.value = '';
+      console.log('[auth] Register success (modal)');
       setAuthStatus('Registration successful');
     } catch (error) {
-      console.error(error);
+      console.error('[auth] Firebase error (modal register):', error);
       setAuthStatus(error.message || 'Registration failed');
     }
   });
 
   loginBtn.addEventListener('click', async () => {
+    console.log('[auth] Login clicked (modal)');
     try {
       await firebaseClient.login(authEmailInput.value.trim(), authPasswordInput.value);
       authPasswordInput.value = '';
       applyProfileVisuals();
+      console.log('[auth] Login success (modal)');
       setAuthStatus('Login successful');
     } catch (error) {
-      console.error(error);
+      console.error('[auth] Firebase error (modal login):', error);
       setAuthStatus(error.message || 'Login failed');
     }
   });

@@ -9,6 +9,7 @@
   };
 
   firebase.initializeApp(firebaseConfig);
+  console.log('[firebase] initialized');
 
   const auth = firebase.auth();
   const db = firebase.firestore();
@@ -50,6 +51,7 @@
   }
 
   async function register(email, password, nickname) {
+    console.log('[firebase] register start');
     const credential = await auth.createUserWithEmailAndPassword(email, password);
     if (nickname) await credential.user.updateProfile({ displayName: nickname });
     await ensureUserDocument(credential.user, nickname || '');
@@ -57,6 +59,7 @@
   }
 
   async function login(email, password) {
+    console.log('[firebase] login start');
     const credential = await auth.signInWithEmailAndPassword(email, password);
     await ensureUserDocument(credential.user);
     return credential.user;
