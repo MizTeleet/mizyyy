@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs/promises');
-const { spawn } = require('child_process');
+const { execFile } = require('child_process');
 const { pathToFileURL } = require('url');
 const ytsr = require('ytsr');
 
@@ -17,22 +17,22 @@ function getMetaFile() {
   return path.join(app.getPath('userData'), 'track_meta.json');
 }
 
-function getYtDlpPaths() {
-  const localExe = path.join(app.getAppPath(), 'yt-dlp.exe');
-  const fallbackExe = path.join(process.cwd(), 'yt-dlp.exe');
-  return [localExe, fallbackExe, 'yt-dlp'];
+function getYtDlpPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, 'yt-dlp.exe')
+    : path.join(__dirname, 'yt-dlp.exe');
 }
 
 async function resolveYtDlpBinary() {
-  const candidates = getYtDlpPaths();
-  for (const candidate of candidates) {
-    if (candidate === 'yt-dlp') return candidate;
-    try {
-      const stat = await fs.stat(candidate);
-      if (stat.isFile()) return candidate;
-    } catch {}
+  const preferred = getYtDlpPath();
+  try {
+    const stat = await fs.stat(preferred);
+    if (!stat.isFile()) throw new Error('yt-dlp path is not a file');
+    if (stat.size === 0) throw new Error('yt-dlp.exe is empty');
+    return preferred;
+  } catch (error) {
+    throw new Error(`yt-dlp.exe not found or invalid at: ${preferred}`);
   }
-  throw new Error('yt-dlp.exe не найден в папке electron_app');
 }
 
 function runYtDlp(args) {
@@ -41,21 +41,17 @@ function runYtDlp(args) {
     try {
       bin = await resolveYtDlpBinary();
     } catch (e) {
-      reject(e);
+      console.error('[yt-dlp] resolve failed:', e);
+      reject(new Error('yt-dlp is missing. Please place a valid yt-dlp.exe in app resources.'));
       return;
     }
-
-    const proc = spawn(bin, args, { windowsHide: true });
-    let stdout = '';
-    let stderr = '';
-
-    proc.stdout.on('data', (d) => (stdout += d.toString()));
-    proc.stderr.on('data', (d) => (stderr += d.toString()));
-
-    proc.on('error', reject);
-    proc.on('close', (code) => {
-      if (code === 0) resolve(stdout.trim());
-      else reject(new Error(stderr || `yt-dlp exited with code ${code}`));
+    execFile(bin, args, { windowsHide: true, maxBuffer: 20 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (!error) {
+        resolve(String(stdout || '').trim());
+        return;
+      }
+      console.error('[yt-dlp] execution failed:', stderr || error.message);
+      reject(new Error(stderr || error.message || 'yt-dlp execution failed'));
     });
   });
 }

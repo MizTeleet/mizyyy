@@ -19,8 +19,13 @@
       "preload.js",
       "renderer/**/*",
       "Music/**/*",
-      "yt-dlp.exe",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "yt-dlp.exe",
+        "to": "yt-dlp.exe"
+      }
     ],
     "win": {
       "target": [
@@ -28,9 +33,7 @@
       ],
       "artifactName": "LeetMusic.exe"
     },
-    "asarUnpack": [
-      "yt-dlp.exe"
-    ]
+    "asarUnpack": []
   },
   "devDependencies": {
     "electron": "^31.0.2",
