@@ -175,10 +175,20 @@ async function searchYouTube(query) {
 }
 
 async function getYouTubeStreamUrl(videoUrl) {
-  const out = await runYtDlp(['-g', '-f', 'bestaudio', videoUrl]);
-  const line = out.split(/\r?\n/).find(Boolean);
-  if (!line) throw new Error('Не удалось получить stream URL');
-  return line;
+  try {
+    const out = await runYtDlp(['-g', '-f', 'bestaudio', videoUrl]);
+    const line = out.split(/\r?\n/).find(Boolean);
+    if (!line) throw new Error('Не удалось получить stream URL');
+    return line;
+  } catch (error) {
+    const message = String(error?.message || error || '');
+    if (!message.includes('429')) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    const retryOut = await runYtDlp(['-g', '-f', 'bestaudio', videoUrl]);
+    const retryLine = retryOut.split(/\r?\n/).find(Boolean);
+    if (!retryLine) throw new Error('Не удалось получить stream URL');
+    return retryLine;
+  }
 }
 
 async function downloadYouTubeAudio(videoUrl) {

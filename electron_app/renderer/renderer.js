@@ -86,10 +86,17 @@ let autoPlayNextEnabled = false;
 let currentOnlineQueue = [];
 let currentOnlineIndex = -1;
 let currentSourceType = 'none';
+let currentPlayingId = '';
+let currentYtResults = [];
 
 const preparedAudioCache = new Map();
 const preparedAudioOrder = [];
 const MAX_PREPARED_AUDIO = 5;
+const STREAM_REQUEST_DEBOUNCE_MS = 400;
+const MAX_STREAM_CONCURRENCY = 2;
+const hoverPreloadTimers = new Map();
+const streamRequestQueue = [];
+let activeStreamRequests = 0;
 
 
 function refreshIcons() {
@@ -115,6 +122,13 @@ function getPreparedAudio(key) {
   return preparedAudioCache.get(key) || null;
 }
 
+function cleanupPreparedCache() {
+  while (preparedAudioOrder.length > MAX_PREPARED_AUDIO) {
+    const staleKey = preparedAudioOrder.shift();
+    preparedAudioCache.delete(staleKey);
+  }
+}
+
 function createPreparedAudio(key, src) {
   if (!src) return null;
   const existing = getPreparedAudio(key);
@@ -130,6 +144,73 @@ function createPreparedAudio(key, src) {
   }, { once: true });
   rememberPreparedKey(key, prepared);
   return prepared;
+}
+
+function isRateLimitError(error) {
+  return String(error?.message || error || '').includes('429');
+}
+
+function enqueueStreamRequest(task, priority = 'normal') {
+  return new Promise((resolve, reject) => {
+    const job = { task, resolve, reject };
+    if (priority === 'high') streamRequestQueue.unshift(job);
+    else streamRequestQueue.push(job);
+    drainStreamQueue();
+  });
+}
+
+function drainStreamQueue() {
+  while (activeStreamRequests < MAX_STREAM_CONCURRENCY && streamRequestQueue.length) {
+    const next = streamRequestQueue.shift();
+    activeStreamRequests += 1;
+    Promise.resolve()
+      .then(next.task)
+      .then(next.resolve)
+      .catch(next.reject)
+      .finally(() => {
+        activeStreamRequests -= 1;
+        drainStreamQueue();
+      });
+  }
+}
+
+async function getStreamUrlWithRetry(videoUrl, priority = 'normal') {
+  try {
+    return await enqueueStreamRequest(() => api.ytStreamUrl(videoUrl), priority);
+  } catch (error) {
+    if (!isRateLimitError(error)) throw error;
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+    return enqueueStreamRequest(() => api.ytStreamUrl(videoUrl), priority);
+  }
+}
+
+async function prepareYoutubeTrack(item, priority = 'normal') {
+  const key = `yt:${item.id}`;
+  const existing = getPreparedAudio(key);
+  if (existing) return existing;
+  const streamUrl = await getStreamUrlWithRetry(item.url, priority);
+  return createPreparedAudio(key, streamUrl);
+}
+
+function scheduleHoverPreload(item) {
+  const key = `yt:${item.id}`;
+  if (getPreparedAudio(key)) return;
+  if (hoverPreloadTimers.has(key)) return;
+  const timer = setTimeout(async () => {
+    hoverPreloadTimers.delete(key);
+    try {
+      await prepareYoutubeTrack(item, 'normal');
+    } catch {}
+  }, STREAM_REQUEST_DEBOUNCE_MS);
+  hoverPreloadTimers.set(key, timer);
+}
+
+function cancelHoverPreload(item) {
+  const key = `yt:${item.id}`;
+  const timer = hoverPreloadTimers.get(key);
+  if (!timer) return;
+  clearTimeout(timer);
+  hoverPreloadTimers.delete(key);
 }
 
 function setAuthStatus(message) {
@@ -630,10 +711,9 @@ function renderTracks() {
       const li = document.createElement('li');
       const displayTitle = track.customTitle || track.title;
       li.innerHTML = `<strong>${track.favorite ? '❤ ' : ''}${displayTitle}</strong><br/><small>${track.description || track.name}</small>`;
-      if (i === currentIndex) li.classList.add('active');
+      if (currentPlayingId === `local:${track.id}`) li.classList.add('active');
       li.addEventListener('click', () => playTrack(i));
       li.addEventListener('mouseenter', () => createPreparedAudio(`local:${track.id}`, track.fileUrl));
-      createPreparedAudio(`local:${track.id}`, track.fileUrl);
       trackListEl.append(li);
     });
   }
@@ -742,6 +822,7 @@ async function playTrack(index) {
   currentIndex = index;
   const track = tracks[index];
   currentSourceType = 'local';
+  currentPlayingId = `local:${track.id}`;
   currentOnlineQueue = [];
   currentOnlineIndex = -1;
   const prepared = createPreparedAudio(`local:${track.id}`, track.fileUrl);
@@ -772,10 +853,12 @@ async function playTrack(index) {
     source: 'local',
   }));
   renderTracks();
+  renderYtResults(currentYtResults);
 }
 
 async function playYoutubeResult(item, queue = null, index = -1) {
   currentSourceType = 'online';
+  currentPlayingId = `yt:${item.id}`;
   if (Array.isArray(queue)) {
     currentOnlineQueue = queue;
     currentOnlineIndex = index;
@@ -786,8 +869,7 @@ async function playYoutubeResult(item, queue = null, index = -1) {
   let prepared = getPreparedAudio(cacheKey);
   if (!prepared) {
     setPlayStatus('Loading...');
-    const streamUrl = await api.ytStreamUrl(item.url);
-    prepared = createPreparedAudio(cacheKey, streamUrl);
+    prepared = await prepareYoutubeTrack(item, 'high');
   } else if (!prepared.ready) {
     setPlayStatus('Loading...');
   }
@@ -810,6 +892,8 @@ async function playYoutubeResult(item, queue = null, index = -1) {
     artist: item.author || parseArtistFromTitle(item.title),
     source: 'online',
   }));
+  renderTracks();
+  renderYtResults(currentOnlineQueue.length ? currentOnlineQueue : currentYtResults);
 }
 
 function switchTab(tab) {
@@ -861,20 +945,22 @@ document.getElementById('importBtn').addEventListener('click', async () => {
   renderTracks();
 });
 
-document.getElementById('ytSearchBtn').addEventListener('click', async () => {
-  const query = document.getElementById('ytSearchInput').value.trim();
+function renderYtResults(results) {
+  currentYtResults = Array.isArray(results) ? results : [];
   ytResultsEl.innerHTML = '';
-  if (!query) return;
-  const results = (await api.ytSearch(query)).slice(0, 30);
-  if (!results.length) {
+
+  if (!currentYtResults.length) {
     ytResultsEl.innerHTML = '<li class="yt-item">Ничего не найдено</li>';
     return;
   }
 
   const fragment = document.createDocumentFragment();
-  results.forEach((item, index) => {
+  currentYtResults.forEach((item, index) => {
     const li = document.createElement('li');
     li.className = 'yt-item';
+    li.style.cursor = 'pointer';
+    if (currentPlayingId === `yt:${item.id}`) li.classList.add('active');
+
     const info = document.createElement('div');
     info.innerHTML = `<strong>${item.title}</strong><br/><small>${item.author || ''} ${item.duration ? '• ' + item.duration : ''}</small>`;
 
@@ -883,18 +969,15 @@ document.getElementById('ytSearchBtn').addEventListener('click', async () => {
 
     const play = document.createElement('button');
     play.textContent = 'Play';
-    play.addEventListener('click', () => playYoutubeResult(item, results, index));
-
-    const dl = document.createElement('button');
-    dl.textContent = 'Download';
-    dl.addEventListener('click', async () => {
-      await api.ytDownload(item.url);
-      await refreshTracks();
+    play.addEventListener('click', (event) => {
+      event.stopPropagation();
+      playYoutubeResult(item, currentYtResults, index);
     });
 
     const fav = document.createElement('button');
     fav.textContent = 'Add to favorites';
-    fav.addEventListener('click', () => {
+    fav.addEventListener('click', (event) => {
+      event.stopPropagation();
       if (!ytFavorites.some((x) => x.id === item.id)) ytFavorites.push({ ...item, description: '' });
       updateBehaviorEntry({
         title: item.title,
@@ -907,29 +990,27 @@ document.getElementById('ytSearchBtn').addEventListener('click', async () => {
       switchTab('favorites');
     });
 
-    actions.append(play, dl, fav);
+    actions.append(play, fav);
     li.append(info, actions);
-    li.addEventListener('mouseenter', async () => {
-      const key = `yt:${item.id}`;
-      if (getPreparedAudio(key)) return;
-      try {
-        const streamUrl = await api.ytStreamUrl(item.url);
-        createPreparedAudio(key, streamUrl);
-      } catch {}
-    });
+    li.addEventListener('click', () => playYoutubeResult(item, currentYtResults, index));
+    li.addEventListener('mouseenter', () => scheduleHoverPreload(item));
+    li.addEventListener('mouseleave', () => cancelHoverPreload(item));
     fragment.append(li);
   });
-
   ytResultsEl.append(fragment);
+}
 
-  results.slice(0, 5).forEach(async (item) => {
-    const key = `yt:${item.id}`;
-    if (getPreparedAudio(key)) return;
-    try {
-      const streamUrl = await api.ytStreamUrl(item.url);
-      createPreparedAudio(key, streamUrl);
-    } catch {}
+document.getElementById('ytSearchBtn').addEventListener('click', async () => {
+  const query = document.getElementById('ytSearchInput').value.trim();
+  ytResultsEl.innerHTML = '';
+  if (!query) return;
+  const results = (await api.ytSearch(query)).slice(0, 30);
+  renderYtResults(results);
+
+  currentYtResults.slice(0, 3).forEach((item) => {
+    prepareYoutubeTrack(item, 'normal').catch(() => {});
   });
+  cleanupPreparedCache();
 });
 
 document.getElementById('ytSearchInput').addEventListener('keydown', (e) => {
@@ -972,6 +1053,8 @@ audio.addEventListener('ended', () => {
     }
   }
   setPlaybackVisualState(false);
+  renderTracks();
+  renderYtResults(currentOnlineQueue.length ? currentOnlineQueue : currentYtResults);
 });
 
 audio.addEventListener('pause', () => setPlaybackVisualState(false));
