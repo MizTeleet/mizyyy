@@ -87,22 +87,57 @@ function createMainWindow() {
 function installMoviePageAdSkip(movieWindow) {
   const runAdSkipScript = `
     (() => {
+      const skipAllVideos = () => {
+        document.querySelectorAll('video').forEach(v => {
+          try {
+            v.currentTime = v.duration || 9999;
+          } catch (e) {}
+        });
+      };
+
+      if (!document.getElementById('__skipAdButton')) {
+        const btn = document.createElement('button');
+        btn.id = '__skipAdButton';
+        btn.innerText = 'Пропустить рекламу';
+        btn.style.position = 'fixed';
+        btn.style.top = '20px';
+        btn.style.right = '20px';
+        btn.style.zIndex = '999999';
+        btn.style.padding = '10px 15px';
+        btn.style.background = 'red';
+        btn.style.color = 'white';
+        btn.style.border = 'none';
+        btn.style.borderRadius = '8px';
+        btn.style.cursor = 'pointer';
+
+        btn.onclick = () => {
+          skipAllVideos();
+
+          // Альтернатива: ускорение, если перемотка блокируется
+          document.querySelectorAll('video').forEach(v => {
+            try {
+              v.playbackRate = 16;
+            } catch (e) {}
+          });
+        };
+
+        document.body.appendChild(btn);
+      }
+
       if (!window.__movieAdSkipInterval) {
         window.__movieAdSkipInterval = setInterval(() => {
           document.querySelectorAll('video').forEach(v => {
             try {
+              // Автопопытка скипа коротких прероллов
               if (v.duration && v.duration < 120) {
-                v.muted = true;
                 v.currentTime = v.duration;
-                v.play?.();
               }
 
-              if (v.playbackRate < 4) {
-                v.playbackRate = 16;
-              }
+              // Если скип ограничен сайтом, ускоряем рекламу
+              v.playbackRate = 16;
             } catch (e) {}
           });
-        }, 1000);
+        }, 2000);
       }
     })();
   `;
@@ -120,6 +155,7 @@ function installMoviePageAdSkip(movieWindow) {
   movieWindow.webContents.on('did-finish-load', safeExecute);
   movieWindow.webContents.on('did-navigate', safeExecute);
 }
+
 
 function openMovieWindow(movieId) {
   if (!movieId) {
