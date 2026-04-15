@@ -93,6 +93,12 @@ input:focus {
   align-items: start;
   gap: 14px;
   background: #0b1220;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.result-item:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.28);
 }
 
 .film-poster {
@@ -129,7 +135,10 @@ input:focus {
 .film-action {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
   height: 100%;
+  flex-wrap: wrap;
 }
 
 .watch-btn {
@@ -142,11 +151,27 @@ input:focus {
   background: var(--accent);
   cursor: pointer;
   transition: transform 0.15s ease, background-color 0.15s ease;
-  min-width: 120px;
+  min-width: 210px;
+}
+
+
+.in-app-btn {
+  background: #16a34a;
+}
+
+.in-app-btn:hover {
+  background: #15803d;
+}
+
+.browser-btn {
+  background: #2563eb;
+}
+
+.browser-btn:hover {
+  background: #1d4ed8;
 }
 
 .watch-btn:hover {
-  background: var(--accent-hover);
   transform: translateY(-1px);
 }
 

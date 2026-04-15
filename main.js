@@ -6,6 +6,7 @@ const {
   Menu,
   ipcMain,
   session,
+  shell,
 } = require('electron');
 const { ElectronBlocker } = require('@ghostery/adblocker-electron');
 const fetch = require('cross-fetch');
@@ -176,7 +177,6 @@ function installMoviePageAdSkip(movieWindow) {
   movieWindow.webContents.on('did-navigate', safeExecute);
 }
 
-
 function openMovieWindow(movieId) {
   if (!movieId) {
     return;
@@ -198,6 +198,14 @@ function openMovieWindow(movieId) {
 
 ipcMain.handle('open-movie', (_event, movieId) => {
   openMovieWindow(movieId);
+});
+
+ipcMain.handle('open-movie-external', (_event, movieId) => {
+  if (!movieId) {
+    return;
+  }
+
+  shell.openExternal(`https://www.kinopoisk.net/film/${movieId}/`);
 });
 
 app.whenReady().then(async () => {

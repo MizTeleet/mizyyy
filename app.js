@@ -79,21 +79,32 @@ function renderFilms(films, append = false) {
     const action = document.createElement('div');
     action.className = 'film-action';
 
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'watch-btn';
-    btn.textContent = 'Смотреть';
+    const inAppBtn = document.createElement('button');
+    inAppBtn.type = 'button';
+    inAppBtn.className = 'watch-btn in-app-btn';
+    inAppBtn.textContent = '🎬 Смотреть в приложении';
 
-    if (typeof film.id === 'number' && window.electronAPI?.openMovie) {
-      btn.addEventListener('click', () => {
+    const browserBtn = document.createElement('button');
+    browserBtn.type = 'button';
+    browserBtn.className = 'watch-btn browser-btn';
+    browserBtn.textContent = '🌐 Смотреть без рекламы';
+
+    if (typeof film.id === 'number' && window.electronAPI?.openMovie && window.electronAPI?.openMovieExternal) {
+      inAppBtn.addEventListener('click', () => {
         window.electronAPI.openMovie(film.id);
       });
+
+      browserBtn.addEventListener('click', () => {
+        window.electronAPI.openMovieExternal(film.id);
+      });
     } else {
-      btn.disabled = true;
-      btn.title = 'Ссылка недоступна: отсутствует ID фильма';
+      inAppBtn.disabled = true;
+      browserBtn.disabled = true;
+      inAppBtn.title = 'Ссылка недоступна: отсутствует ID фильма';
+      browserBtn.title = 'Ссылка недоступна: отсутствует ID фильма';
     }
 
-    action.append(btn);
+    action.append(inAppBtn, browserBtn);
     li.append(poster, info, action);
     fragment.appendChild(li);
   });
