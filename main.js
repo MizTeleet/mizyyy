@@ -129,6 +129,19 @@ function installMoviePageAdSkip(movieWindow) {
         });
       };
 
+      const requestPiPForFirstVideo = async () => {
+        const video = document.querySelector('video');
+        if (!video || !document.pictureInPictureEnabled) {
+          return;
+        }
+
+        try {
+          if (document.pictureInPictureElement !== video) {
+            await video.requestPictureInPicture();
+          }
+        } catch (e) {}
+      };
+
       if (!document.getElementById('__skipAdButton')) {
         const btn = document.createElement('button');
         btn.id = '__skipAdButton';
@@ -151,6 +164,34 @@ function installMoviePageAdSkip(movieWindow) {
         };
 
         document.body.appendChild(btn);
+      }
+
+      if (!document.getElementById('__pipButton')) {
+        const pipBtn = document.createElement('button');
+        pipBtn.id = '__pipButton';
+        pipBtn.innerText = '📺 PiP режим';
+        pipBtn.style.position = 'fixed';
+        pipBtn.style.bottom = '20px';
+        pipBtn.style.right = '20px';
+        pipBtn.style.zIndex = '999999';
+        pipBtn.style.padding = '10px';
+        pipBtn.style.background = 'black';
+        pipBtn.style.color = 'white';
+        pipBtn.style.border = 'none';
+        pipBtn.style.borderRadius = '8px';
+        pipBtn.style.cursor = 'pointer';
+
+        pipBtn.onclick = async () => {
+          await requestPiPForFirstVideo();
+        };
+
+        document.body.appendChild(pipBtn);
+      }
+
+      if (!window.__moviePiPTimeout) {
+        window.__moviePiPTimeout = setTimeout(() => {
+          requestPiPForFirstVideo();
+        }, 3000);
       }
 
       if (!window.__movieAdSkipInterval) {
