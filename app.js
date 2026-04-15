@@ -1,5 +1,6 @@
 const BACKEND_URL = 'http://127.0.0.1:3030';
 const DEBOUNCE_MS = 400;
+const FALLBACK_POSTER = 'https://placehold.co/120x180/0f172a/9ca3af?text=No+Poster';
 
 const searchInput = document.getElementById('searchInput');
 const resultsList = document.getElementById('results');
@@ -20,13 +21,12 @@ function setStatus(text) {
 function normalizeFilm(rawFilm) {
   const id = Number.isInteger(rawFilm?.id) ? rawFilm.id : null;
   const title = rawFilm?.name || rawFilm?.alternativeName || 'Без названия';
+  const year = rawFilm?.year ? String(rawFilm.year).trim() : '—';
+  const poster = rawFilm?.poster?.url || FALLBACK_POSTER;
+  const description = (rawFilm?.description || '').trim() || 'Нет описания';
+  const rating = Number.isFinite(rawFilm?.rating?.kp) ? rawFilm.rating.kp.toFixed(1) : '—';
 
-  let year = '—';
-  if (rawFilm?.year && String(rawFilm.year).trim()) {
-    year = String(rawFilm.year).trim();
-  }
-
-  return { id, title, year };
+  return { id, title, year, poster, description, rating };
 }
 
 function renderFilms(films, append = false) {
@@ -45,11 +45,14 @@ function renderFilms(films, append = false) {
     const li = document.createElement('li');
     li.className = 'result-item';
 
-    const filmId = film.id ?? '—';
-    const safeLink = typeof film.id === 'number' ? `https://www.kinopoisk.net/film/${film.id}/` : null;
+    const poster = document.createElement('img');
+    poster.className = 'film-poster';
+    poster.src = film.poster;
+    poster.alt = `${film.title} poster`;
+    poster.loading = 'lazy';
 
-    const meta = document.createElement('div');
-    meta.className = 'film-meta';
+    const info = document.createElement('div');
+    info.className = 'film-meta';
 
     const title = document.createElement('span');
     title.className = 'film-title';
@@ -61,24 +64,37 @@ function renderFilms(films, append = false) {
 
     const id = document.createElement('span');
     id.className = 'film-sub';
-    id.textContent = `ID: ${filmId}`;
+    id.textContent = `ID: ${film.id ?? '—'}`;
+
+    const rating = document.createElement('span');
+    rating.className = 'film-sub';
+    rating.textContent = `Рейтинг КП: ${film.rating}`;
+
+    const description = document.createElement('p');
+    description.className = 'film-description';
+    description.textContent = film.description;
+
+    info.append(title, year, id, rating, description);
+
+    const action = document.createElement('div');
+    action.className = 'film-action';
 
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'watch-btn';
     btn.textContent = 'Смотреть';
 
-    if (safeLink) {
+    if (typeof film.id === 'number' && window.electronAPI?.openMovie) {
       btn.addEventListener('click', () => {
-        window.open(safeLink, '_blank', 'noopener,noreferrer');
+        window.electronAPI.openMovie(film.id);
       });
     } else {
       btn.disabled = true;
       btn.title = 'Ссылка недоступна: отсутствует ID фильма';
     }
 
-    meta.append(title, year, id);
-    li.append(meta, btn);
+    action.append(btn);
+    li.append(poster, info, action);
     fragment.appendChild(li);
   });
 

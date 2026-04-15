@@ -13,6 +13,7 @@
     "productName": "KinoPoisk Search",
     "files": [
       "main.js",
+      "preload.js",
       "server.js",
       "index.html",
       "app.js",
@@ -28,5 +29,9 @@
   "devDependencies": {
     "electron": "^32.2.0",
     "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "@ghostery/adblocker-electron": "^2.11.0",
+    "cross-fetch": "^4.0.0"
   }
 }
