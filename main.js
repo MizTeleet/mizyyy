@@ -34,7 +34,6 @@ function setupSafeNetworkBlocking() {
   const urlPatterns = [
     '*://*.doubleclick.net/*',
     '*://*.googlesyndication.com/*',
-    '*://adriver.ru/*',
     '*://*.adriver.ru/*',
   ];
 
@@ -85,27 +84,25 @@ function createMainWindow() {
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
-function installMoviePageCleanup(movieWindow) {
-  const runCleanupScript = `
+function installMoviePageAdSkip(movieWindow) {
+  const runAdSkipScript = `
     (() => {
-      if (!window.__movieSafeCleanerInterval) {
-        window.__movieSafeCleanerInterval = setInterval(() => {
-          // Удаляем только явные banner-элементы (не трогаем iframe и video)
-          document.querySelectorAll('[class*="banner"], [id*="banner"]').forEach(el => {
-            try {
-              el.remove();
-            } catch (e) {}
-          });
-
-          // Аккуратный скип коротких видео (возможные прероллы)
+      if (!window.__movieAdSkipInterval) {
+        window.__movieAdSkipInterval = setInterval(() => {
           document.querySelectorAll('video').forEach(v => {
             try {
-              if (v.duration && v.duration < 60) {
+              if (v.duration && v.duration < 120) {
+                v.muted = true;
                 v.currentTime = v.duration;
+                v.play?.();
+              }
+
+              if (v.playbackRate < 4) {
+                v.playbackRate = 16;
               }
             } catch (e) {}
           });
-        }, 2000);
+        }, 1000);
       }
     })();
   `;
@@ -115,7 +112,7 @@ function installMoviePageCleanup(movieWindow) {
       return;
     }
 
-    movieWindow.webContents.executeJavaScript(runCleanupScript).catch(() => {
+    movieWindow.webContents.executeJavaScript(runAdSkipScript).catch(() => {
       // Игнорируем ошибки инжекта на переходах/CSP
     });
   };
@@ -139,7 +136,7 @@ function openMovieWindow(movieId) {
     },
   });
 
-  installMoviePageCleanup(movieWindow);
+  installMoviePageAdSkip(movieWindow);
   movieWindow.loadURL(`https://www.kinopoisk.net/film/${movieId}/`);
 }
 
