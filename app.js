@@ -1,8 +1,8 @@
 const API_KEY = '7P5F36A-AQ44G61-JTW1QJN-E7R8YXZ';
-const API_URL = 'https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword';
+const API_URL = 'https://api.kinopoisk.dev/v1.4/movie/search';
 
-const REQUEST_DELAY_MS = 350;
-const DEBOUNCE_MS = 450;
+const REQUEST_DELAY_MS = 250;
+const DEBOUNCE_MS = 400;
 
 const searchInput = document.getElementById('searchInput');
 const resultsList = document.getElementById('results');
@@ -25,8 +25,8 @@ function setStatus(text) {
 }
 
 function normalizeFilm(rawFilm) {
-  const id = rawFilm?.filmId ?? rawFilm?.kinopoiskId ?? null;
-  const title = rawFilm?.nameRu || rawFilm?.nameEn || rawFilm?.nameOriginal || 'Без названия';
+  const id = Number.isInteger(rawFilm?.id) ? rawFilm.id : null;
+  const title = rawFilm?.name || rawFilm?.alternativeName || 'Без названия';
 
   let year = '—';
   if (rawFilm?.year && String(rawFilm.year).trim()) {
@@ -46,7 +46,7 @@ function renderFilms(films, append = false) {
   }
 
   if (!films.length && !append) {
-    setStatus('Ничего не найдено. Попробуйте другой запрос.');
+    setStatus('Ничего не найдено.');
     return;
   }
 
@@ -105,6 +105,20 @@ function updateLoadMoreVisibility() {
   }
 }
 
+async function parseApiError(response) {
+  try {
+    const payload = await response.json();
+    const message = payload?.message || payload?.error || payload?.statusText;
+    if (message) {
+      return `Ошибка API: ${message}`;
+    }
+  } catch (_ignored) {
+    // noop
+  }
+
+  return `Ошибка API: ${response.status}`;
+}
+
 async function fetchFilms(keyword, page = 1, append = false) {
   if (!keyword.trim()) {
     resultsList.innerHTML = '';
@@ -122,23 +136,21 @@ async function fetchFilms(keyword, page = 1, append = false) {
   const mySerial = ++requestSerial;
 
   try {
-    // Гарантированная задержка между запросами
     await sleep(REQUEST_DELAY_MS);
 
     const url = new URL(API_URL);
-    url.searchParams.set('keyword', keyword);
+    url.searchParams.set('query', keyword);
     url.searchParams.set('page', String(page));
 
     const response = await fetch(url.toString(), {
       method: 'GET',
       headers: {
         'X-API-KEY': API_KEY,
-        'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      throw new Error(`Ошибка API: ${response.status}`);
+      throw new Error(await parseApiError(response));
     }
 
     const data = await response.json();
@@ -147,8 +159,8 @@ async function fetchFilms(keyword, page = 1, append = false) {
       return;
     }
 
-    const items = Array.isArray(data?.films) ? data.films : [];
-    totalPages = Number.isFinite(data?.pagesCount) ? data.pagesCount : page;
+    const items = Array.isArray(data?.docs) ? data.docs : [];
+    totalPages = Number.isFinite(data?.pages) ? data.pages : page;
     currentPage = page;
 
     const normalized = items.map(normalizeFilm);
@@ -156,6 +168,8 @@ async function fetchFilms(keyword, page = 1, append = false) {
 
     if (normalized.length) {
       setStatus(`Найдено: ${normalized.length} на странице ${currentPage}${totalPages ? ` из ${totalPages}` : ''}.`);
+    } else if (!append) {
+      setStatus('Ничего не найдено.');
     }
 
     updateLoadMoreVisibility();
@@ -163,7 +177,8 @@ async function fetchFilms(keyword, page = 1, append = false) {
     if (mySerial !== requestSerial) {
       return;
     }
-    setStatus(`Не удалось выполнить запрос. ${error.message}`);
+
+    setStatus(error.message || 'Не удалось выполнить запрос.');
     if (!append) {
       resultsList.innerHTML = '';
     }
@@ -176,11 +191,18 @@ async function fetchFilms(keyword, page = 1, append = false) {
   }
 }
 
-function handleInput() {
-  const rawValue = searchInput.value || '';
-  const keyword = rawValue.trim();
+function triggerSearchNow() {
+  if (debounceTimer) {
+    clearTimeout(debounceTimer);
+    debounceTimer = null;
+  }
 
-  currentKeyword = keyword;
+  currentKeyword = (searchInput.value || '').trim();
+  fetchFilms(currentKeyword, 1, false);
+}
+
+function handleInput() {
+  currentKeyword = (searchInput.value || '').trim();
 
   if (debounceTimer) {
     clearTimeout(debounceTimer);
@@ -192,6 +214,13 @@ function handleInput() {
 }
 
 searchInput.addEventListener('input', handleInput);
+
+searchInput.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    triggerSearchNow();
+  }
+});
 
 loadMoreBtn.addEventListener('click', () => {
   if (isLoading || currentPage >= totalPages) {
