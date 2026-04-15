@@ -1,7 +1,4 @@
-const API_KEY = '7P5F36A-AQ44G61-JTW1QJN-E7R8YXZ';
-const API_URL = 'https://api.kinopoisk.dev/v1.4/movie/search';
-
-const REQUEST_DELAY_MS = 250;
+const BACKEND_URL = 'http://127.0.0.1:3030';
 const DEBOUNCE_MS = 400;
 
 const searchInput = document.getElementById('searchInput');
@@ -16,10 +13,6 @@ let totalPages = 0;
 let isLoading = false;
 let requestSerial = 0;
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 function setStatus(text) {
   statusEl.textContent = text;
 }
@@ -33,11 +26,7 @@ function normalizeFilm(rawFilm) {
     year = String(rawFilm.year).trim();
   }
 
-  return {
-    id,
-    title,
-    year,
-  };
+  return { id, title, year };
 }
 
 function renderFilms(films, append = false) {
@@ -74,8 +63,6 @@ function renderFilms(films, append = false) {
     id.className = 'film-sub';
     id.textContent = `ID: ${filmId}`;
 
-    meta.append(title, year, id);
-
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'watch-btn';
@@ -90,6 +77,7 @@ function renderFilms(films, append = false) {
       btn.title = 'Ссылка недоступна: отсутствует ID фильма';
     }
 
+    meta.append(title, year, id);
     li.append(meta, btn);
     fragment.appendChild(li);
   });
@@ -105,20 +93,6 @@ function updateLoadMoreVisibility() {
   }
 }
 
-async function parseApiError(response) {
-  try {
-    const payload = await response.json();
-    const message = payload?.message || payload?.error || payload?.statusText;
-    if (message) {
-      return `Ошибка API: ${message}`;
-    }
-  } catch (_ignored) {
-    // noop
-  }
-
-  return `Ошибка API: ${response.status}`;
-}
-
 async function fetchFilms(keyword, page = 1, append = false) {
   if (!keyword.trim()) {
     resultsList.innerHTML = '';
@@ -129,38 +103,29 @@ async function fetchFilms(keyword, page = 1, append = false) {
     return;
   }
 
+  const mySerial = ++requestSerial;
   isLoading = true;
   updateLoadMoreVisibility();
   setStatus('Ищем фильмы…');
 
-  const mySerial = ++requestSerial;
-
   try {
-    await sleep(REQUEST_DELAY_MS);
-
-    const url = new URL(API_URL);
-    url.searchParams.set('query', keyword);
+    const url = new URL('/search', BACKEND_URL);
+    url.searchParams.set('q', keyword);
     url.searchParams.set('page', String(page));
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'X-API-KEY': API_KEY,
-      },
-    });
+    const response = await fetch(url.toString(), { method: 'GET' });
+    const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(await parseApiError(response));
+      throw new Error(payload?.error || `Ошибка API: ${response.status}`);
     }
-
-    const data = await response.json();
 
     if (mySerial !== requestSerial) {
       return;
     }
 
-    const items = Array.isArray(data?.docs) ? data.docs : [];
-    totalPages = Number.isFinite(data?.pages) ? data.pages : page;
+    const items = Array.isArray(payload?.docs) ? payload.docs : [];
+    totalPages = Number.isFinite(payload?.pages) ? payload.pages : page;
     currentPage = page;
 
     const normalized = items.map(normalizeFilm);

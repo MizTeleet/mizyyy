@@ -1,0 +1,32 @@
+{
+  "name": "kinopoisk-desktop-search",
+  "version": "1.0.0",
+  "description": "Electron desktop app for searching movies via kinopoisk.dev",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.mizyyy.kinopoisksearch",
+    "productName": "KinoPoisk Search",
+    "files": [
+      "main.js",
+      "server.js",
+      "index.html",
+      "app.js",
+      "styles.css",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}
