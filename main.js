@@ -87,10 +87,43 @@ function createMainWindow() {
 function installMoviePageAdSkip(movieWindow) {
   const runAdSkipScript = `
     (() => {
-      const skipAllVideos = () => {
+      const patchCurrentTime = () => {
         document.querySelectorAll('video').forEach(v => {
           try {
-            v.currentTime = v.duration || 9999;
+            if (v.__patchedCurrentTime) {
+              return;
+            }
+
+            Object.defineProperty(v, 'currentTime', {
+              configurable: true,
+              get() {
+                return this._time || 0;
+              },
+              set(val) {
+                this._time = val;
+              },
+            });
+
+            v.__patchedCurrentTime = true;
+          } catch (e) {}
+        });
+      };
+
+      const forceSeekAndPlay = () => {
+        document.querySelectorAll('video').forEach(v => {
+          try {
+            v.pause();
+            v.currentTime = 9999;
+            v.play?.();
+          } catch (e) {}
+        });
+      };
+
+      const speedupAds = () => {
+        document.querySelectorAll('video').forEach(v => {
+          try {
+            v.playbackRate = 16;
+            v.muted = true;
           } catch (e) {}
         });
       };
@@ -111,14 +144,9 @@ function installMoviePageAdSkip(movieWindow) {
         btn.style.cursor = 'pointer';
 
         btn.onclick = () => {
-          skipAllVideos();
-
-          // Альтернатива: ускорение, если перемотка блокируется
-          document.querySelectorAll('video').forEach(v => {
-            try {
-              v.playbackRate = 16;
-            } catch (e) {}
-          });
+          patchCurrentTime();
+          forceSeekAndPlay();
+          speedupAds();
         };
 
         document.body.appendChild(btn);
@@ -126,18 +154,10 @@ function installMoviePageAdSkip(movieWindow) {
 
       if (!window.__movieAdSkipInterval) {
         window.__movieAdSkipInterval = setInterval(() => {
-          document.querySelectorAll('video').forEach(v => {
-            try {
-              // Автопопытка скипа коротких прероллов
-              if (v.duration && v.duration < 120) {
-                v.currentTime = v.duration;
-              }
-
-              // Если скип ограничен сайтом, ускоряем рекламу
-              v.playbackRate = 16;
-            } catch (e) {}
-          });
-        }, 2000);
+          patchCurrentTime();
+          forceSeekAndPlay();
+          speedupAds();
+        }, 1000);
       }
     })();
   `;
