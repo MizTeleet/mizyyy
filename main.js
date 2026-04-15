@@ -13,6 +13,7 @@ const fetch = require('cross-fetch');
 const PORT = process.env.PORT || 3030;
 let serverProcess = null;
 let blocker = null;
+let networkBlockingInitialized = false;
 
 async function setupAdBlock() {
   if (blocker) {
@@ -21,6 +22,31 @@ async function setupAdBlock() {
 
   blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
   blocker.enableBlockingInSession(session.defaultSession);
+}
+
+function setupAggressiveNetworkBlocking() {
+  if (networkBlockingInitialized) {
+    return;
+  }
+
+  networkBlockingInitialized = true;
+
+  const urlPatterns = [
+    '*://*/*ads*',
+    '*://*/*ad*',
+    '*://*.doubleclick.net/*',
+    '*://*.googlesyndication.com/*',
+    '*://*/*vast*',
+    '*://*/*banner*',
+    '*://*/*video-ad*',
+    '*://*.yandex.ru/ads/*',
+    '*://adriver.ru/*',
+    '*://*.adriver.ru/*',
+  ];
+
+  session.defaultSession.webRequest.onBeforeRequest({ urls: urlPatterns }, (details, callback) => {
+    callback({ cancel: true });
+  });
 }
 
 function startBackend() {
@@ -65,6 +91,68 @@ function createMainWindow() {
   win.loadFile(path.join(__dirname, 'index.html'));
 }
 
+function installMoviePageCleanup(movieWindow) {
+  const runCleanupScript = `
+    (() => {
+      // Пытаемся скипнуть рекламу через video
+      document.querySelectorAll('video').forEach(v => {
+        try {
+          v.muted = true;
+          v.currentTime = v.duration || 9999;
+          v.play?.();
+        } catch (e) {}
+      });
+
+      if (!window.__adCleanerInterval) {
+        window.__adCleanerInterval = setInterval(() => {
+          // Удаляем iframe-рекламу, но не трогаем iframe внутри активного плеера
+          document.querySelectorAll('iframe').forEach(el => {
+            try {
+              const insidePlayer = el.closest('[class*="player"], [id*="player"]');
+              if (!insidePlayer) {
+                el.remove();
+              }
+            } catch (e) {}
+          });
+
+          // Удаляем явные рекламные блоки
+          document.querySelectorAll('[class*="ad"], [id*="ad"], [class*="banner"], [id*="banner"]').forEach(el => {
+            try {
+              const text = (el.textContent || '').toLowerCase();
+              const keepPlayer = el.closest('[class*="player"], [id*="player"], video');
+              if (!keepPlayer || text.includes('реклама') || text.includes('advert')) {
+                el.remove();
+              }
+            } catch (e) {}
+          });
+
+          // Повторная попытка скипа видео-рекламы
+          document.querySelectorAll('video').forEach(v => {
+            try {
+              if (v.duration > 0) {
+                v.currentTime = v.duration;
+              }
+            } catch (e) {}
+          });
+        }, 1500);
+      }
+    })();
+  `;
+
+  const safeExecute = () => {
+    if (movieWindow.isDestroyed()) {
+      return;
+    }
+
+    movieWindow.webContents.executeJavaScript(runCleanupScript).catch(() => {
+      // Игнорируем ошибки инжекта на страницах с CSP/переходах
+    });
+  };
+
+  movieWindow.webContents.on('did-finish-load', safeExecute);
+  movieWindow.webContents.on('did-navigate', safeExecute);
+}
+
 function openMovieWindow(movieId) {
   if (!movieId) {
     return;
@@ -80,6 +168,7 @@ function openMovieWindow(movieId) {
     },
   });
 
+  installMoviePageCleanup(movieWindow);
   movieWindow.loadURL(`https://www.kinopoisk.net/film/${movieId}/`);
 }
 
@@ -90,6 +179,7 @@ ipcMain.handle('open-movie', (_event, movieId) => {
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   startBackend();
+  setupAggressiveNetworkBlocking();
 
   try {
     await setupAdBlock();
