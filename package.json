@@ -1,7 +1,7 @@
 {
-  "name": "kinopoisk-desktop-search",
+  "name": "leetf1lm",
   "version": "1.0.0",
-  "description": "Electron desktop app for searching movies via kinopoisk.dev",
+  "description": "LeetF1lm desktop app for searching movies via kinopoisk.dev",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,8 +9,8 @@
     "pack": "electron-builder --dir"
   },
   "build": {
-    "appId": "com.mizyyy.kinopoisksearch",
-    "productName": "KinoPoisk Search",
+    "appId": "com.mizyyy.leetf1lm",
+    "productName": "LeetF1lm",
     "files": [
       "main.js",
       "preload.js",

@@ -12,6 +12,7 @@ const { ElectronBlocker } = require('@ghostery/adblocker-electron');
 const fetch = require('cross-fetch');
 
 const PORT = process.env.PORT || 3030;
+const APP_NAME = 'LeetF1lm';
 let serverProcess = null;
 let blocker = null;
 let networkBlockingInitialized = false;
@@ -75,6 +76,7 @@ function createMainWindow() {
     minWidth: 760,
     minHeight: 560,
     autoHideMenuBar: true,
+    title: APP_NAME,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -250,6 +252,7 @@ ipcMain.handle('open-movie-external', (_event, movieId) => {
 });
 
 app.whenReady().then(async () => {
+  app.setName(APP_NAME);
   Menu.setApplicationMenu(null);
   startBackend();
   setupSafeNetworkBlocking();
