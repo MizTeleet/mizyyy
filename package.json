@@ -1,7 +1,7 @@
 {
-  "name": "leetf1lm",
-  "version": "1.0.0",
-  "description": "LeetF1lm desktop app for searching movies via kinopoisk.dev",
+  "name": "leetfilms",
+  "version": "2.0.0",
+  "description": "LeetFilms desktop app for searching movies via kinopoisk.dev",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -9,8 +9,8 @@
     "pack": "electron-builder --dir"
   },
   "build": {
-    "appId": "com.mizyyy.leetf1lm",
-    "productName": "LeetF1lm",
+    "appId": "com.mizyyy.leetfilms",
+    "productName": "LeetFilms",
     "files": [
       "main.js",
       "preload.js",
@@ -30,8 +30,5 @@
     "electron": "^32.2.0",
     "electron-builder": "^25.1.8"
   },
-  "dependencies": {
-    "@ghostery/adblocker-electron": "^2.11.0",
-    "cross-fetch": "^4.0.0"
-  }
+  "dependencies": {}
 }

@@ -1,58 +1,44 @@
 const path = require('path');
+const fs = require('fs/promises');
 const { fork } = require('child_process');
-const {
-  app,
-  BrowserWindow,
-  Menu,
-  ipcMain,
-  session,
-  shell,
-} = require('electron');
-const { ElectronBlocker } = require('@ghostery/adblocker-electron');
-const fetch = require('cross-fetch');
+const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
 
+const APP_NAME = 'LeetFilms';
 const PORT = process.env.PORT || 3030;
-const APP_NAME = 'LeetF1lm';
 let serverProcess = null;
-let blocker = null;
-let networkBlockingInitialized = false;
 
-async function setupAdBlock() {
-  if (blocker) {
-    return;
-  }
+async function ensureAppDataDir() {
+  const dataDir = path.join(app.getPath('documents'), APP_NAME);
+  await fs.mkdir(dataDir, { recursive: true });
 
-  blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(fetch);
-  blocker.enableBlockingInSession(session.defaultSession);
+  const defaults = {
+    'favorites.json': '[]\n',
+    'user.json': '{"name":"","createdAt":""}\n',
+    'notes.json': '[]\n',
+  };
+
+  await Promise.all(
+    Object.entries(defaults).map(async ([name, content]) => {
+      const filePath = path.join(dataDir, name);
+      try {
+        await fs.access(filePath);
+      } catch {
+        await fs.writeFile(filePath, content, 'utf8');
+      }
+    }),
+  );
+
+  return dataDir;
 }
 
-function setupSafeNetworkBlocking() {
-  if (networkBlockingInitialized) {
-    return;
-  }
-
-  networkBlockingInitialized = true;
-
-  const urlPatterns = [
-    '*://*.doubleclick.net/*',
-    '*://*.googlesyndication.com/*',
-    '*://*.adriver.ru/*',
-  ];
-
-  session.defaultSession.webRequest.onBeforeRequest({ urls: urlPatterns }, (details, callback) => {
-    callback({ cancel: true });
-  });
-}
-
-function startBackend() {
-  if (serverProcess) {
-    return;
-  }
+function startBackend(dataDir) {
+  if (serverProcess) return;
 
   serverProcess = fork(path.join(__dirname, 'server.js'), [], {
     env: {
       ...process.env,
       PORT: String(PORT),
+      LEETFILMS_DATA_DIR: dataDir,
     },
     stdio: 'inherit',
   });
@@ -69,14 +55,14 @@ function stopBackend() {
   serverProcess = null;
 }
 
-function createMainWindow() {
-  const win = new BrowserWindow({
-    width: 980,
-    height: 760,
-    minWidth: 760,
-    minHeight: 560,
-    autoHideMenuBar: true,
+function createWindow() {
+  const window = new BrowserWindow({
     title: APP_NAME,
+    width: 1260,
+    height: 860,
+    minWidth: 980,
+    minHeight: 680,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -84,200 +70,36 @@ function createMainWindow() {
     },
   });
 
-  win.loadFile(path.join(__dirname, 'index.html'));
+  window.loadFile(path.join(__dirname, 'index.html'));
 }
 
-function installMoviePageAdSkip(movieWindow) {
-  const runAdSkipScript = `
-    (() => {
-      const patchCurrentTime = () => {
-        document.querySelectorAll('video').forEach(v => {
-          try {
-            if (v.__patchedCurrentTime) {
-              return;
-            }
-
-            Object.defineProperty(v, 'currentTime', {
-              configurable: true,
-              get() {
-                return this._time || 0;
-              },
-              set(val) {
-                this._time = val;
-              },
-            });
-
-            v.__patchedCurrentTime = true;
-          } catch (e) {}
-        });
-      };
-
-      const forceSeekAndPlay = () => {
-        document.querySelectorAll('video').forEach(v => {
-          try {
-            v.pause();
-            v.currentTime = 9999;
-            v.play?.();
-          } catch (e) {}
-        });
-      };
-
-      const speedupAds = () => {
-        document.querySelectorAll('video').forEach(v => {
-          try {
-            v.playbackRate = 16;
-            v.muted = true;
-          } catch (e) {}
-        });
-      };
-
-      const requestPiPForFirstVideo = async () => {
-        const video = document.querySelector('video');
-        if (!video || !document.pictureInPictureEnabled) {
-          return;
-        }
-
-        try {
-          if (document.pictureInPictureElement !== video) {
-            await video.requestPictureInPicture();
-          }
-        } catch (e) {}
-      };
-
-      if (!document.getElementById('__skipAdButton')) {
-        const btn = document.createElement('button');
-        btn.id = '__skipAdButton';
-        btn.innerText = 'Пропустить рекламу';
-        btn.style.position = 'fixed';
-        btn.style.top = '20px';
-        btn.style.right = '20px';
-        btn.style.zIndex = '999999';
-        btn.style.padding = '10px 15px';
-        btn.style.background = 'red';
-        btn.style.color = 'white';
-        btn.style.border = 'none';
-        btn.style.borderRadius = '8px';
-        btn.style.cursor = 'pointer';
-
-        btn.onclick = () => {
-          patchCurrentTime();
-          forceSeekAndPlay();
-          speedupAds();
-        };
-
-        document.body.appendChild(btn);
-      }
-
-      if (!document.getElementById('__pipButton')) {
-        const pipBtn = document.createElement('button');
-        pipBtn.id = '__pipButton';
-        pipBtn.innerText = '📺 PiP режим';
-        pipBtn.style.position = 'fixed';
-        pipBtn.style.bottom = '20px';
-        pipBtn.style.right = '20px';
-        pipBtn.style.zIndex = '999999';
-        pipBtn.style.padding = '10px';
-        pipBtn.style.background = 'black';
-        pipBtn.style.color = 'white';
-        pipBtn.style.border = 'none';
-        pipBtn.style.borderRadius = '8px';
-        pipBtn.style.cursor = 'pointer';
-
-        pipBtn.onclick = async () => {
-          await requestPiPForFirstVideo();
-        };
-
-        document.body.appendChild(pipBtn);
-      }
-
-      if (!window.__moviePiPTimeout) {
-        window.__moviePiPTimeout = setTimeout(() => {
-          requestPiPForFirstVideo();
-        }, 3000);
-      }
-
-      if (!window.__movieAdSkipInterval) {
-        window.__movieAdSkipInterval = setInterval(() => {
-          patchCurrentTime();
-          forceSeekAndPlay();
-          speedupAds();
-        }, 1000);
-      }
-    })();
-  `;
-
-  const safeExecute = () => {
-    if (movieWindow.isDestroyed()) {
-      return;
-    }
-
-    movieWindow.webContents.executeJavaScript(runAdSkipScript).catch(() => {
-      // Игнорируем ошибки инжекта на переходах/CSP
-    });
-  };
-
-  movieWindow.webContents.on('did-finish-load', safeExecute);
-  movieWindow.webContents.on('did-navigate', safeExecute);
-}
-
-function openMovieWindow(movieId) {
-  if (!movieId) {
-    return;
+ipcMain.handle('open-external-url', (_event, url) => {
+  if (typeof url !== 'string' || !url.startsWith('https://')) {
+    return false;
   }
 
-  const movieWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
-    autoHideMenuBar: true,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-    },
-  });
-
-  installMoviePageAdSkip(movieWindow);
-  movieWindow.loadURL(`https://www.kinopoisk.net/film/${movieId}/`);
-}
-
-ipcMain.handle('open-movie', (_event, movieId) => {
-  openMovieWindow(movieId);
-});
-
-ipcMain.handle('open-movie-external', (_event, movieId) => {
-  if (!movieId) {
-    return;
-  }
-
-  shell.openExternal(`https://www.kinopoisk.net/film/${movieId}/`);
+  shell.openExternal(url);
+  return true;
 });
 
 app.whenReady().then(async () => {
   app.setName(APP_NAME);
   Menu.setApplicationMenu(null);
-  startBackend();
-  setupSafeNetworkBlocking();
 
-  try {
-    await setupAdBlock();
-  } catch (error) {
-    console.warn('[adblock] init failed:', error?.message || error);
-  }
-
-  createMainWindow();
+  const dataDir = await ensureAppDataDir();
+  startBackend(dataDir);
+  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow();
+      createWindow();
     }
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  stopBackend();
+  if (process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', () => {
-  stopBackend();
-});
+app.on('before-quit', stopBackend);
