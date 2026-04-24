@@ -26,11 +26,7 @@
       <section id="tab-search" class="tab-view active glass">
         <label for="searchInput" class="label">Название фильма</label>
         <input id="searchInput" type="text" placeholder="Например, Интерстеллар" autocomplete="off" />
-
-        <div class="status-row">
-          <span id="status" class="status">Начните поиск фильма…</span>
-        </div>
-
+        <div class="status-row"><span id="status" class="status">Начните поиск фильма…</span></div>
         <ul id="results" class="results" aria-live="polite"></ul>
         <button id="loadMoreBtn" class="load-more hidden" type="button">Показать ещё</button>
       </section>
@@ -50,9 +46,14 @@
         </div>
         <div id="notesList" class="notes-list"></div>
       </section>
-
-      <section id="movieDetails" class="movie-details glass hidden" aria-live="polite"></section>
     </main>
+
+    <div id="detailsOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Подробнее о фильме">
+      <div id="detailsModal" class="modal glass">
+        <button id="closeModalBtn" class="close-btn" type="button">✖</button>
+        <section id="movieDetails" class="movie-details"></section>
+      </div>
+    </div>
 
     <template id="noteTemplate">
       <article class="note-card">

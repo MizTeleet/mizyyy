@@ -97,6 +97,30 @@ async function kp(pathname, params = {}) {
   return data;
 }
 
+async function findTrailerByTitle(title) {
+  const query = `${title} trailer`.trim();
+  if (!query) {
+    return '';
+  }
+
+  const url = new URL('https://www.youtube.com/results');
+  url.searchParams.set('search_query', query);
+
+  const response = await fetch(url.toString(), {
+    headers: {
+      'User-Agent': 'Mozilla/5.0',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`YouTube search failed: ${response.status}`);
+  }
+
+  const html = await response.text();
+  const match = html.match(/\"videoId\":\"([a-zA-Z0-9_-]{11})\"/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : '';
+}
+
 async function handleMovieDetails(id, res) {
   try {
     const [movie, reviews] = await Promise.all([
@@ -245,6 +269,18 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && /^\/movie\/\d+\/details$/.test(url.pathname)) {
       const id = Number(url.pathname.split('/')[2]);
       return handleMovieDetails(id, res);
+    }
+
+    if (req.method === 'GET' && url.pathname === '/trailer') {
+      const title = (url.searchParams.get('title') || '').trim();
+      if (!title) return sendJson(res, 400, { error: 'Параметр title обязателен' });
+
+      try {
+        const trailerEmbed = await findTrailerByTitle(title);
+        return sendJson(res, 200, { trailerEmbed });
+      } catch (error) {
+        return sendJson(res, 502, { error: errText(error) });
+      }
     }
 
     const fav = await handleFavorites(req, res, url.pathname);

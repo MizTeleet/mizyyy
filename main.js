@@ -73,6 +73,26 @@ function createWindow() {
   window.loadFile(path.join(__dirname, 'index.html'));
 }
 
+function openMovieInApp(movieId) {
+  if (!movieId) return false;
+
+  const movieWindow = new BrowserWindow({
+    title: `${APP_NAME} — Плеер`,
+    width: 1200,
+    height: 780,
+    autoHideMenuBar: true,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  });
+
+  movieWindow.loadURL(`https://www.kinopoisk.net/film/${movieId}/`);
+  return true;
+}
+
+ipcMain.handle('open-movie', (_event, movieId) => openMovieInApp(movieId));
+
 ipcMain.handle('open-external-url', (_event, url) => {
   if (typeof url !== 'string' || !url.startsWith('https://')) {
     return false;
