@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>BlackLeet — Cabinet</title>
+  <style>
+    :root {
+      --bg1: #070b18;
+      --bg2: #101a33;
+      --glass: rgba(255,255,255,.08);
+      --glass-strong: rgba(255,255,255,.14);
+      --text: #eef4ff;
+      --muted: #a8b7d9;
+      --accent: #69a1ff;
+      --danger: #ff5f78;
+      --ok: #52e0b0;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: var(--text); background: radial-gradient(circle at 20% 10%, #183068 0%, var(--bg1) 35%), linear-gradient(135deg, var(--bg1), var(--bg2)); min-height: 100%; }
+    .app { display: grid; grid-template-columns: 280px 1fr; gap: 16px; padding: 16px; min-height: 100vh; }
+    .panel { background: var(--glass); border: 1px solid rgba(255,255,255,.15); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border-radius: var(--radius); box-shadow: var(--shadow); }
+    .sidebar { padding: 14px; position: sticky; top: 16px; height: calc(100vh - 32px); display: flex; flex-direction: column; gap: 12px; }
+    .profile { display: flex; align-items: center; gap: 12px; }
+    .avatar-wrap { position: relative; width: 56px; height: 56px; }
+    .avatar { width: 100%; height: 100%; border-radius: 18px; object-fit: cover; border: 1px solid rgba(255,255,255,.3); background: #17233f; }
+    .avatar-actions { position: absolute; inset: 0; display: flex; justify-content: center; align-items: flex-end; gap: 6px; padding-bottom: 6px; opacity: 0; transition: .25s; }
+    .avatar-wrap:hover .avatar-actions { opacity: 1; }
+    .tiny { border: 0; background: rgba(0,0,0,.55); color: white; font-size: 12px; border-radius: 999px; padding: 4px 8px; cursor: pointer; }
+    .name { font-size: 18px; font-weight: 700; margin: 0; display: flex; gap: 8px; align-items: center; }
+    .badge { width: 14px; height: 14px; transform: rotate(45deg); border-radius: 2px; position: relative; cursor: help; }
+    .badge::after { content: ""; width: 6px; height: 6px; border: 2px solid #fff; border-top: 0; border-left: 0; transform: rotate(45deg); position: absolute; left: 3px; top: 1px; }
+    .dev { background: #ff2c48; box-shadow: 0 0 16px rgba(255,44,72,.7); }
+    .mod { background: #4ca7ff; box-shadow: 0 0 16px rgba(76,167,255,.7); }
+    .tip { position: relative; }
+    .tip:hover::before { content: attr(data-tip); position: absolute; left: 20px; top: 0; white-space: nowrap; background: #0f1933; border: 1px solid rgba(255,255,255,.2); border-radius: 10px; padding: 6px 8px; font-size: 12px; }
+    .muted { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+    .nav { display: grid; gap: 8px; }
+    .nav button { text-align: left; border: 0; color: var(--text); background: transparent; padding: 10px 12px; border-radius: 12px; cursor: pointer; transition: .2s; }
+    .nav button.active, .nav button:hover { background: var(--glass-strong); transform: translateX(3px); }
+    .hex { width: 24px; height: 24px; background: rgba(255,255,255,.15); clip-path: polygon(25% 4%,75% 4%,100% 50%,75% 96%,25% 96%,0 50%); cursor: pointer; }
+
+    .content { display: grid; gap: 16px; grid-template-columns: 1fr 340px; }
+    .main, .right { padding: 14px; }
+    .screen { display: none; animation: fade .3s ease; }
+    .screen.show { display: block; }
+    @keyframes fade { from {opacity:0; transform:translateY(6px)} to {opacity:1; transform:none} }
+
+    .post, .friend, .chat-item, .msg { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 14px; padding: 10px; margin-bottom: 10px; }
+    .row { display: flex; align-items: center; gap: 10px; }
+    .between { justify-content: space-between; }
+    .btn { border: 0; background: #2a62d4; color: #fff; padding: 8px 12px; border-radius: 10px; cursor: pointer; }
+    .btn.ghost { background: rgba(255,255,255,.12); }
+    .btn.danger { background: var(--danger); }
+    input, textarea, select { width: 100%; background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.2); color: var(--text); border-radius: 10px; padding: 10px; }
+    textarea { min-height: 80px; resize: vertical; }
+
+    .chat-box { max-height: 50vh; overflow: auto; padding-right: 4px; }
+    .msg.me { margin-left: 20%; background: rgba(105,161,255,.3); }
+    .typing { font-size: 12px; color: var(--muted); min-height: 16px; }
+    .reco { position: fixed; right: 16px; bottom: 16px; width: min(320px, calc(100vw - 32px)); padding: 10px; z-index: 10; }
+    .small { font-size: 12px; color: var(--muted); }
+    .online { color: var(--ok); font-size: 12px; }
+
+    .dropdown { position: relative; }
+    .menu { position: absolute; top: 36px; left: 0; width: 240px; padding: 8px; display: none; z-index: 30; }
+    .dropdown.open .menu { display: block; animation: fade .25s ease; }
+    .menu button { width: 100%; margin-bottom: 6px; }
+
+    @media (max-width: 960px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; }
+      .content { grid-template-columns: 1fr; }
+      .reco { position: static; width: 100%; margin-top: 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar panel">
+      <div class="row between">
+        <div class="profile">
+          <div class="avatar-wrap">
+            <img id="avatar" class="avatar" alt="avatar" src="https://placehold.co/120x120/1f2c50/ffffff?text=BL" />
+            <div class="avatar-actions">
+              <button class="tiny" id="changeAvatar">Сменить</button>
+              <button class="tiny" id="openAvatar">Открыть</button>
+            </div>
+          </div>
+          <div>
+            <h2 class="name"><span id="nickView">BlackLeet User</span> <span id="badgeWrap"></span></h2>
+            <p class="muted">ID: <span id="uid"></span></p>
+          </div>
+        </div>
+        <div class="hex" id="openSettings" title="Настройки"></div>
+      </div>
+
+      <div class="nav">
+        <button data-screen="feed" class="active">🏠 Главная</button>
+        <button data-screen="friends">👥 Друзья</button>
+        <button data-screen="messages">💬 Сообщения</button>
+        <button data-screen="profile">🙍 Профиль</button>
+      </div>
+
+      <div class="dropdown" id="devDrop">
+        <button class="btn ghost" id="devToggle">🛡 Меню разработчика</button>
+        <div class="menu panel" id="devMenu"></div>
+      </div>
+    </aside>
+
+    <section class="content">
+      <main class="main panel">
+        <div id="feed" class="screen show">
+          <h3>Витрина новостей</h3>
+          <div class="small">Публиковать здесь могут разработчик и модераторы.</div>
+          <div class="row" style="margin:10px 0">
+            <textarea id="feedText" placeholder="Новая публикация..."></textarea>
+          </div>
+          <div class="row" style="margin-bottom:10px">
+            <input id="feedImage" placeholder="URL картинки (необязательно)">
+            <button class="btn" id="addFeed">Опубликовать</button>
+          </div>
+          <div id="feedList"></div>
+        </div>
+
+        <div id="friends" class="screen">
+          <h3>Друзья</h3>
+          <div class="row" style="margin-bottom:10px">
+            <input id="friendSearch" placeholder="Поиск по ID или нику">
+            <button class="btn" id="findFriend">Найти</button>
+          </div>
+          <div id="friendsList"></div>
+        </div>
+
+        <div id="messages" class="screen">
+          <h3>Сообщения</h3>
+          <div id="chatHeader" class="chat-item">Выберите друга для чата</div>
+          <div class="typing" id="typing"></div>
+          <div class="chat-box" id="chatBox"></div>
+          <div class="row">
+            <input id="msgInput" placeholder="Напишите сообщение...">
+            <button class="btn" id="sendMsg">Отправить</button>
+          </div>
+        </div>
+
+        <div id="profile" class="screen">
+          <h3>Профиль</h3>
+          <p class="small">Последний онлайн: <span id="lastOnline"></span></p>
+          <h4>Посты друзей (лента)</h4>
+          <div id="friendFeed"></div>
+        </div>
+      </main>
+
+      <aside class="right panel" id="settingsPanel" style="display:none">
+        <h3>Настройки</h3>
+        <label>Ник (минимум 3 слова)</label>
+        <input id="nickInput" placeholder="например: Black Leet Master">
+        <button class="btn" id="saveNick" style="margin-top:8px">Сохранить ник</button>
+        <p class="small" id="nickHint"></p>
+
+        <hr style="border-color: rgba(255,255,255,.15)">
+        <label>Фото профиля</label>
+        <input id="avatarInput" placeholder="Вставьте URL фотографии">
+        <div class="row" style="margin-top:8px">
+          <button class="btn" id="saveAvatar">Обновить</button>
+          <button class="btn danger" id="delAvatar">Удалить</button>
+        </div>
+
+        <hr style="border-color: rgba(255,255,255,.15)">
+        <label>Стиль чата</label>
+        <select id="chatStyle">
+          <option value="vk">VK Light</option>
+          <option value="tg">Telegram Soft</option>
+        </select>
+      </aside>
+    </section>
+  </div>
+
+  <section class="panel reco" id="reco"></section>
+
+  <input type="file" accept="image/*" id="avatarFile" hidden>
+
+  <script>
+    const DEV_EMAIL = "999.renk@gmail.com";
+    const state = {
+      me: load("bl_me", {
+        id: load("bl_uid", crypto.randomUUID()),
+        email: DEV_EMAIL,
+        role: "dev",
+        nick: "Black Leet Developer",
+        avatar: "https://placehold.co/120x120/26355f/ffffff?text=BL",
+        lastNickChange: 0,
+        lastOnline: new Date().toISOString()
+      }),
+      users: load("bl_users", []),
+      friends: load("bl_friends", []),
+      messages: load("bl_messages", {}),
+      feed: load("bl_feed", []),
+      activeChat: null
+    };
+
+    if (!localStorage.getItem("bl_uid")) localStorage.setItem("bl_uid", state.me.id);
+    if (!state.users.length) seedUsers();
+    persist();
+
+    const qs = (s)=>document.querySelector(s);
+    const qsa = (s)=>[...document.querySelectorAll(s)];
+
+    function load(k, d){ try{return JSON.parse(localStorage.getItem(k)) ?? d;}catch{return d;} }
+    function save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+    function persist(){
+      save("bl_me", state.me);
+      save("bl_users", state.users);
+      save("bl_friends", state.friends);
+      save("bl_messages", state.messages);
+      save("bl_feed", state.feed);
+    }
+    function fmt(t){ return new Date(t).toLocaleString("ru-RU"); }
+
+    function badge(role){
+      if(role==="dev") return `<span class='tip' data-tip='Данный пользователь — разработчик системы'><span class='badge dev'></span></span>`;
+      if(role==="mod") return `<span class='tip' data-tip='Проверенный модератор проекта'><span class='badge mod'></span></span>`;
+      return "";
+    }
+
+    function renderProfile(){
+      qs("#uid").textContent = state.me.id;
+      qs("#nickView").textContent = state.me.nick;
+      qs("#badgeWrap").innerHTML = badge(state.me.role);
+      qs("#avatar").src = state.me.avatar;
+      qs("#lastOnline").textContent = fmt(state.me.lastOnline);
+      qs("#nickHint").textContent = `Следующая смена ника: ${Math.max(0, 10800 - Math.floor((Date.now()-state.me.lastNickChange)/1000))} сек.`;
+      qs("#devDrop").style.display = ["dev","mod"].includes(state.me.role) ? "block" : "none";
+    }
+
+    function renderFeed(){
+      qs("#feedList").innerHTML = state.feed.map(p=>`
+        <article class='post'>
+          <div class='row between'><b>${p.author}</b><span class='small'>${fmt(p.time)}</span></div>
+          ${p.img ? `<img src='${p.img}' style='width:100%;border-radius:12px;margin-top:8px'>` : ""}
+          <p>${p.text}</p>
+          ${canModerate(p.ownerId) ? `<div class='row'><button class='btn ghost' onclick='editFeed("${p.id}")'>Изменить</button><button class='btn danger' onclick='delFeed("${p.id}")'>Удалить</button></div>` : ""}
+        </article>`).join("") || "<p class='small'>Пока пусто.</p>";
+      qs("#friendFeed").innerHTML = state.users.filter(u=>state.friends.includes(u.id)).map(u=>`
+        <div class='friend'><div class='row between'><b>${u.nick}</b><button class='btn ghost' onclick='friendPost("${u.id}")'>+ пост</button></div></div>
+      `).join("") || "<p class='small'>Добавьте друзей, чтобы видеть их ленту.</p>";
+    }
+
+    function renderFriends(list = state.users){
+      qs("#friendsList").innerHTML = list.map(u=>`
+        <div class='friend'>
+          <div class='row between'>
+            <div class='row'><img class='avatar' style='width:38px;height:38px;border-radius:10px' src='${u.avatar}'><div><b>${u.nick}</b> ${badge(u.role)}<div class='small'>ID: ${u.id}</div></div></div>
+            <div>
+              ${state.friends.includes(u.id)
+                ? `<button class='btn danger' onclick='toggleFriend("${u.id}")'>Удалить</button><button class='btn ghost' onclick='openChat("${u.id}")'>Чат</button>`
+                : `<button class='btn' onclick='toggleFriend("${u.id}")'>Добавить</button>`}
+            </div>
+          </div>
+        </div>`).join("");
+    }
+
+    function renderChat(){
+      if(!state.activeChat){ qs("#chatBox").innerHTML = ""; return; }
+      const friend = state.users.find(u=>u.id===state.activeChat);
+      qs("#chatHeader").innerHTML = `<div class='row between'><span>Чат с <b onclick='showProfile("${friend.id}")' style='cursor:pointer'>${friend.nick}</b></span><span class='online'>● online</span></div><div class='small'>ID: ${friend.id}</div>`;
+      const key = convoKey(state.me.id, friend.id);
+      const msgs = state.messages[key] || [];
+      qs("#chatBox").innerHTML = msgs.map(m=>`<div class='msg ${m.from===state.me.id?'me':''}'><div>${m.text}</div><div class='small'>${fmt(m.time)}</div>${m.from===state.me.id?`<button class='tiny' onclick='editMsg("${m.id}")'>✎</button>`:""}</div>`).join("");
+    }
+
+    function renderReco(){
+      const newest = [...state.users].slice(-3);
+      qs("#reco").innerHTML = `<b>Новые пользователи</b>${newest.map(u=>`<div class='small'>• ${u.nick}</div>`).join("")}`;
+    }
+
+    function renderDevMenu(){
+      const can = ["dev","mod"].includes(state.me.role);
+      if(!can) return;
+      qs("#devMenu").innerHTML = state.users.map(u=>`<button class='btn ghost' onclick='modAction("${u.id}")'>Управлять: ${u.nick}</button>`).join("");
+    }
+
+    function seedUsers(){
+      state.users = [
+        {id:"u-2001", nick:"Neon Wave Star", avatar:"https://placehold.co/80x80/4d6baf/fff?text=N", role:"user"},
+        {id:"u-2002", nick:"Blue Pixel Hero", avatar:"https://placehold.co/80x80/366fb3/fff?text=B", role:"mod"},
+        {id:"u-2003", nick:"Sunny Byte Nova", avatar:"https://placehold.co/80x80/6d5ac4/fff?text=S", role:"user"}
+      ];
+    }
+
+    function canModerate(ownerId){
+      if(state.me.role === "dev") return true;
+      if(state.me.role === "mod") {
+        const target = state.users.find(u=>u.id===ownerId);
+        return target && target.role === "user";
+      }
+      return ownerId === state.me.id;
+    }
+
+    function convoKey(a,b){ return [a,b].sort().join("_"); }
+    function toggleFriend(id){
+      state.friends = state.friends.includes(id) ? state.friends.filter(x=>x!==id) : [...state.friends, id];
+      persist(); renderFriends();
+    }
+    function openChat(id){ state.activeChat = id; showScreen("messages"); renderChat(); }
+    function showProfile(id){ alert("Открыт профиль: " + id); }
+    function modAction(id){
+      const u = state.users.find(x=>x.id===id); if(!u) return;
+      if(state.me.role==="mod" && ["mod","dev"].includes(u.role)) return alert("Модератор не может управлять модераторами/разработчиком");
+      const act = prompt("Действия: ban, freeze, del_posts, del_photo, change_id, make_mod");
+      if(act==="change_id" && state.me.role==="dev") u.id = "u-" + Math.floor(Math.random()*99999);
+      if(act==="make_mod" && state.me.role==="dev") u.role = "mod";
+      if(act==="del_photo") u.avatar = "https://placehold.co/80x80/2b3350/fff?text=?";
+      if(act==="del_posts") state.feed = state.feed.filter(p=>p.ownerId!==u.id);
+      if(act==="ban"||act==="freeze") u.nick += " ("+act+")";
+      persist(); renderFriends(); renderFeed();
+    }
+
+    window.toggleFriend = toggleFriend;
+    window.openChat = openChat;
+    window.showProfile = showProfile;
+    window.modAction = modAction;
+
+    window.editMsg = (id)=>{
+      const key = convoKey(state.me.id, state.activeChat);
+      const m = (state.messages[key]||[]).find(x=>x.id===id); if(!m) return;
+      const text = prompt("Редактировать сообщение", m.text); if(!text) return;
+      m.text = text.trim(); persist(); renderChat();
+    }
+    window.delFeed = (id)=>{ state.feed = state.feed.filter(x=>x.id!==id); persist(); renderFeed(); }
+    window.editFeed = (id)=>{
+      const p = state.feed.find(x=>x.id===id); if(!p) return;
+      const t = prompt("Новый текст", p.text); if(!t) return;
+      p.text = t; p.time = new Date().toISOString(); persist(); renderFeed();
+    }
+    window.friendPost = (id)=>{
+      const text = prompt("Текст публикации друга"); if(!text) return;
+      const u = state.users.find(x=>x.id===id);
+      state.feed.unshift({id:crypto.randomUUID(), ownerId:id, author:u.nick, text, img:"", time:new Date().toISOString()});
+      persist(); renderFeed();
+    }
+
+    qsa(".nav button").forEach(btn=>btn.onclick = ()=>{
+      qsa(".nav button").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      showScreen(btn.dataset.screen);
+    });
+    function showScreen(name){ qsa(".screen").forEach(s=>s.classList.remove("show")); qs("#"+name).classList.add("show"); }
+
+    qs("#openSettings").onclick = ()=> {
+      const p = qs("#settingsPanel");
+      p.style.display = p.style.display === "none" ? "block" : "none";
+    };
+
+    qs("#saveNick").onclick = ()=>{
+      const n = qs("#nickInput").value.trim().replace(/\s+/g," ");
+      if(n.split(" ").length < 3) return alert("Ник должен содержать минимум 3 слова");
+      if(Date.now() - state.me.lastNickChange < 10800000) return alert("Можно менять ник раз в 3 часа");
+      state.me.nick = n; state.me.lastNickChange = Date.now(); state.me.lastOnline = new Date().toISOString();
+      persist(); renderProfile();
+    };
+
+    qs("#changeAvatar").onclick = ()=> qs("#avatarFile").click();
+    qs("#avatarFile").onchange = (e)=>{
+      const f=e.target.files?.[0]; if(!f) return;
+      const r=new FileReader(); r.onload=()=>{ state.me.avatar=r.result; persist(); renderProfile(); renderFriends(); }; r.readAsDataURL(f);
+    };
+    qs("#openAvatar").onclick = ()=> window.open(state.me.avatar, "_blank");
+    qs("#saveAvatar").onclick = ()=>{ const v=qs("#avatarInput").value.trim(); if(v){state.me.avatar=v; persist(); renderProfile();}};
+    qs("#delAvatar").onclick = ()=>{ state.me.avatar="https://placehold.co/120x120/1f2c50/ffffff?text=BL"; persist(); renderProfile(); };
+
+    qs("#addFeed").onclick = ()=>{
+      if(!["dev","mod"].includes(state.me.role)) return alert("Только модератор/разработчик");
+      const text = qs("#feedText").value.trim(); if(!text) return;
+      state.feed.unshift({id:crypto.randomUUID(), ownerId:state.me.id, author:state.me.nick, text, img:qs("#feedImage").value.trim(), time:new Date().toISOString()});
+      qs("#feedText").value=""; qs("#feedImage").value=""; persist(); renderFeed();
+    };
+
+    qs("#findFriend").onclick = ()=>{
+      const q = qs("#friendSearch").value.trim().toLowerCase();
+      const res = state.users.filter(u=>u.id.toLowerCase().includes(q)||u.nick.toLowerCase().includes(q));
+      renderFriends(res);
+    };
+
+    qs("#sendMsg").onclick = ()=>{
+      if(!state.activeChat) return alert("Сначала выберите друга");
+      const t = qs("#msgInput").value.trim(); if(!t) return;
+      const key = convoKey(state.me.id, state.activeChat);
+      state.messages[key] ||= [];
+      state.messages[key].push({id:crypto.randomUUID(), from:state.me.id, to:state.activeChat, text:t, time:new Date().toISOString()});
+      qs("#msgInput").value=""; persist(); renderChat();
+    };
+
+    qs("#msgInput").addEventListener("input", ()=>{
+      qs("#typing").textContent = "Вы печатаете...";
+      clearTimeout(window.__tp); window.__tp = setTimeout(()=>qs("#typing").textContent = "", 700);
+    });
+
+    qs("#devToggle").onclick = ()=> qs("#devDrop").classList.toggle("open");
+    document.addEventListener("click", (e)=>{ if(!qs("#devDrop").contains(e.target)) qs("#devDrop").classList.remove("open"); });
+
+    renderProfile(); renderFriends(); renderFeed(); renderChat(); renderReco(); renderDevMenu();
+  </script>
+</body>
+</html>
