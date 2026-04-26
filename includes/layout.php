@@ -3,7 +3,7 @@ require_once __DIR__ . '/app.php';
 
 function render_layout_start(string $title, string $active, array $user): void
 {
-    $badge = badge_role($user);
+    $badge = badge_html_from_role(badge_role($user));
     ?>
 <!doctype html>
 <html lang="ru">
@@ -23,7 +23,7 @@ function render_layout_start(string $title, string $active, array $user): void
       <div>
         <b data-me-name><?php echo htmlspecialchars((string)$user['username']); ?></b>
         <span data-me-badge><?php echo $badge; ?></span>
-        <div class="small">ID: <span data-me-id><?php echo (int)$user['id']; ?></span></div>
+        <div class="small">ID: <span data-me-id><?php echo (int)$user['public_id']; ?></span></div>
       </div>
     </div>
     <div class="nav">

@@ -15,12 +15,16 @@ if (!$user) {
     json_response(['ok' => false, 'message' => 'Unauthorized'], 401);
 }
 
-$data = app_load();
+$conn = db();
+if (!$conn) {
+    json_response(['ok' => false, 'message' => 'DB unavailable'], 500);
+}
+
 $payload = json_decode((string)file_get_contents('php://input'), true) ?: [];
 
 if ($action === 'me') {
     json_response(['ok' => true, 'user' => [
-        'id' => $user['id'],
+        'id' => (int)$user['public_id'],
         'username' => $user['username'],
         'avatar' => $user['avatar'],
         'role' => badge_role($user),
@@ -28,25 +32,25 @@ if ($action === 'me') {
 }
 
 if ($action === 'feed') {
-    if (!$data['feed']) {
-        $data['feed'][] = [
-            'id' => 1,
-            'author_id' => $user['id'],
-            'author' => $user['username'],
-            'role' => badge_role($user),
-            'text' => 'Добро пожаловать в BlackLeet. Здесь будут новости проекта.',
-            'image' => '',
-            'time' => time(),
+    $sql = 'SELECT f.*, u.username, u.email, u.is_mod FROM feed f JOIN users u ON u.id=f.author_id ORDER BY f.id DESC LIMIT 50';
+    $res = $conn->query($sql);
+    $items = [];
+    while ($row = $res->fetch_assoc()) {
+        $items[] = [
+            'id' => (int)$row['id'],
+            'author' => $row['username'],
+            'role' => badge_role($row),
+            'text' => $row['text'],
+            'image' => $row['image'] ?? '',
+            'time' => (int)$row['created_at'],
         ];
-        app_save($data);
     }
-    json_response(['ok' => true, 'feed' => $data['feed']]);
+    json_response(['ok' => true, 'feed' => $items]);
 }
 
 if ($action === 'change_nick') {
     $nick = trim((string)($payload['username'] ?? ''));
     $parts = preg_split('/\s+/u', $nick, -1, PREG_SPLIT_NO_EMPTY);
-
     if (count($parts) < 3) {
         json_response(['ok' => false, 'message' => 'Ник должен содержать минимум 3 слова']);
     }
@@ -56,10 +60,9 @@ if ($action === 'change_nick') {
         json_response(['ok' => false, 'message' => 'Менять ник можно раз в 3 часа']);
     }
 
-    $user['username'] = $nick;
-    $user['last_nick_change'] = $now;
-    update_user($data, $user);
-    app_save($data);
+    $stmt = $conn->prepare('UPDATE users SET username=?, last_nick_change=? WHERE id=?');
+    $stmt->bind_param('sii', $nick, $now, $user['id']);
+    $stmt->execute();
     json_response(['ok' => true, 'message' => 'Ник обновлен']);
 }
 
@@ -68,28 +71,23 @@ if ($action === 'all') {
         json_response(['ok' => false, 'message' => 'Forbidden'], 403);
     }
 
-    $users = array_map(static function (array $u): array {
-        return [
-            'id' => $u['id'],
+    $res = $conn->query('SELECT id, public_id, username, avatar, email, is_mod FROM users ORDER BY id DESC');
+    $users = [];
+    while ($u = $res->fetch_assoc()) {
+        $users[] = [
+            'id' => (int)$u['public_id'],
             'username' => $u['username'],
             'avatar' => $u['avatar'],
             'role' => badge_role($u),
         ];
-    }, $data['users']);
+    }
 
     json_response(['ok' => true, 'users' => $users]);
 }
 
 if ($action === 'moderate') {
-    $targetId = (int)($payload['target_id'] ?? 0);
-    $target = null;
-    foreach ($data['users'] as $u) {
-        if ((int)$u['id'] === $targetId) {
-            $target = $u;
-            break;
-        }
-    }
-
+    $targetPublic = (int)($payload['target_id'] ?? 0);
+    $target = user_by_public_id($conn, $targetPublic);
     if (!$target) {
         json_response(['ok' => false, 'message' => 'Пользователь не найден'], 404);
     }
@@ -100,26 +98,20 @@ if ($action === 'moderate') {
 
     $a = (string)($payload['action'] ?? '');
     if ($a === 'ban') {
-        $target['is_banned'] = true;
-    }
-    if ($a === 'rename') {
+        $target['is_banned'] = 1;
+    } elseif ($a === 'rename') {
         $val = trim((string)($payload['value'] ?? ''));
         if ($val !== '') {
             $target['username'] = $val;
         }
-    }
-    if ($a === 'change_id' && is_dev($user)) {
-        $target['id'] = (int)$data['next_id'];
-        $data['next_id'] = ((int)$data['next_id']) + 1;
-    }
-    if ($a === 'freeze') {
+    } elseif ($a === 'change_id' && is_dev($user)) {
+        $target['public_id'] = next_public_id($conn);
+    } elseif ($a === 'freeze') {
         $min = max(1, (int)($payload['value'] ?? 1));
-        $target['is_frozen_until'] = time() + ($min * 60);
+        $target['frozen_until'] = time() + ($min * 60);
     }
 
-    update_user($data, $target);
-    app_save($data);
-
+    update_user($conn, $target);
     json_response(['ok' => true, 'message' => 'Действие выполнено']);
 }
 

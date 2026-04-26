@@ -2,77 +2,81 @@
 require_once __DIR__ . '/../includes/app.php';
 
 $user = require_auth();
-$data = app_load();
+$conn = db();
+if (!$conn) {
+    json_response(['ok' => false, 'message' => 'DB unavailable'], 500);
+}
+
 $action = $_GET['action'] ?? '';
 $payload = json_decode((string)file_get_contents('php://input'), true) ?: [];
 $uid = (int)$user['id'];
 
-$data['messages'] ??= [];
-
-function chat_key(int $a, int $b): string
-{
-    $ids = [$a, $b];
-    sort($ids);
-    return $ids[0] . '_' . $ids[1];
-}
-
 if ($action === 'send') {
-    $to = (int)($payload['to_id'] ?? 0);
+    $toPublic = (int)($payload['to_id'] ?? 0);
+    $target = user_by_public_id($conn, $toPublic);
     $text = trim((string)($payload['text'] ?? ''));
-    if ($to <= 0 || $text === '') {
+    if (!$target || $text === '') {
         json_response(['ok' => false, 'message' => 'Invalid message'], 400);
     }
 
-    $k = chat_key($uid, $to);
-    $data['messages'][$k] ??= [];
-    $data['messages'][$k][] = ['id' => uniqid('m', true), 'from' => $uid, 'to' => $to, 'text' => $text, 'time' => time()];
-    app_save($data);
-
+    $now = time();
+    $stmt = $conn->prepare('INSERT INTO messages (from_id, to_id, text, created_at) VALUES (?, ?, ?, ?)');
+    $stmt->bind_param('iisi', $uid, $target['id'], $text, $now);
+    $stmt->execute();
     json_response(['ok' => true]);
 }
 
 if ($action === 'list') {
-    $chatId = (int)($_GET['chat'] ?? 0);
-    $k = chat_key($uid, $chatId);
-    $messages = $data['messages'][$k] ?? [];
-
-    $chatUser = null;
-    foreach ($data['users'] as $u) {
-        if ((int)$u['id'] === $chatId) {
-            $chatUser = ['id' => $u['id'], 'username' => $u['username'], 'avatar' => $u['avatar'], 'role' => badge_role($u)];
-            break;
-        }
+    $chatPublic = (int)($_GET['chat'] ?? 0);
+    $chatUser = user_by_public_id($conn, $chatPublic);
+    if (!$chatUser) {
+        json_response(['ok' => true, 'messages' => [], 'chat_user' => null]);
     }
 
-    $out = array_map(static fn (array $m): array => [
-        'id' => $m['id'],
-        'text' => $m['text'],
-        'time' => $m['time'],
-        'from_me' => (int)$m['from'] === $uid,
-    ], $messages);
+    $stmt = $conn->prepare('SELECT id, from_id, text, created_at FROM messages WHERE (from_id=? AND to_id=?) OR (from_id=? AND to_id=?) ORDER BY id ASC');
+    $stmt->bind_param('iiii', $uid, $chatUser['id'], $chatUser['id'], $uid);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    $messages = [];
+    while ($m = $res->fetch_assoc()) {
+        $messages[] = [
+            'id' => (int)$m['id'],
+            'text' => $m['text'],
+            'time' => (int)$m['created_at'],
+            'from_me' => (int)$m['from_id'] === $uid,
+        ];
+    }
 
-    json_response(['ok' => true, 'messages' => $out, 'chat_user' => $chatUser]);
+    json_response(['ok' => true, 'messages' => $messages, 'chat_user' => [
+        'id' => (int)$chatUser['public_id'],
+        'username' => $chatUser['username'],
+        'avatar' => $chatUser['avatar'],
+        'role' => badge_role($chatUser),
+    ]]);
 }
 
 if ($action === 'chats') {
-    $friends = $data['friends'][(string)$uid] ?? [];
+    $stmt = $conn->prepare('SELECT u.id, u.public_id, u.username, u.avatar, u.email, u.is_mod, u.last_seen
+      FROM friends f JOIN users u ON u.id=f.friend_id WHERE f.user_id=? ORDER BY u.id DESC');
+    $stmt->bind_param('i', $uid);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
     $chats = [];
-    foreach ($friends as $fid) {
-        foreach ($data['users'] as $u) {
-            if ((int)$u['id'] === (int)$fid) {
-                $k = chat_key($uid, (int)$fid);
-                $list = $data['messages'][$k] ?? [];
-                $last = $list ? end($list) : null;
-                $chats[] = [
-                    'id' => $u['id'],
-                    'username' => $u['username'],
-                    'avatar' => $u['avatar'],
-                    'role' => badge_role($u),
-                    'online' => (time() - (int)$u['last_seen']) < 120,
-                    'last_text' => $last['text'] ?? '',
-                ];
-            }
-        }
+    while ($u = $res->fetch_assoc()) {
+        $lastStmt = $conn->prepare('SELECT text FROM messages WHERE (from_id=? AND to_id=?) OR (from_id=? AND to_id=?) ORDER BY id DESC LIMIT 1');
+        $lastStmt->bind_param('iiii', $uid, $u['id'], $u['id'], $uid);
+        $lastStmt->execute();
+        $lastRes = $lastStmt->get_result()->fetch_assoc();
+
+        $chats[] = [
+            'id' => (int)$u['public_id'],
+            'username' => $u['username'],
+            'avatar' => $u['avatar'],
+            'role' => badge_role($u),
+            'online' => (time() - (int)$u['last_seen']) < 120,
+            'last_text' => $lastRes['text'] ?? '',
+        ];
     }
 
     json_response(['ok' => true, 'chats' => $chats]);
@@ -81,22 +85,21 @@ if ($action === 'chats') {
 if ($action === 'inbox') {
     $_SESSION['last_msg_check'] ??= time();
     $lastCheck = (int)$_SESSION['last_msg_check'];
-    $found = [];
 
-    foreach ($data['messages'] as $k => $list) {
-        foreach ($list as $m) {
-            if ((int)$m['to'] === $uid && (int)$m['time'] > $lastCheck) {
-                foreach ($data['users'] as $u) {
-                    if ((int)$u['id'] === (int)$m['from']) {
-                        $found[] = ['username' => $u['username'], 'avatar' => $u['avatar'], 'text' => $m['text']];
-                    }
-                }
-            }
-        }
+    $stmt = $conn->prepare('SELECT m.text, u.username, u.avatar
+      FROM messages m JOIN users u ON u.id=m.from_id
+      WHERE m.to_id=? AND m.created_at>? ORDER BY m.id DESC LIMIT 5');
+    $stmt->bind_param('ii', $uid, $lastCheck);
+    $stmt->execute();
+    $res = $stmt->get_result();
+
+    $notifications = [];
+    while ($row = $res->fetch_assoc()) {
+        $notifications[] = ['username' => $row['username'], 'avatar' => $row['avatar'], 'text' => $row['text']];
     }
 
     $_SESSION['last_msg_check'] = time();
-    json_response(['ok' => true, 'notifications' => $found]);
+    json_response(['ok' => true, 'notifications' => $notifications]);
 }
 
 json_response(['ok' => false, 'message' => 'Unknown action'], 400);

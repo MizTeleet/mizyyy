@@ -11,22 +11,33 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim((string)($_POST['email'] ?? ''));
     $username = trim((string)($_POST['username'] ?? ''));
+    $password = (string)($_POST['password'] ?? '');
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Введите корректный email.';
     } elseif ($username === '') {
         $error = 'Введите ник.';
+    } elseif (mb_strlen($password) < 6) {
+        $error = 'Пароль минимум 6 символов.';
     } else {
-        $data = app_load();
-        $user = user_by_email($data, $email);
-        if (!$user) {
-            $user = create_user($data, $email, $username);
-            app_save($data);
+        $user = null;
+        $conn = db();
+        if (!$conn) {
+            $error = 'База данных недоступна. Проверьте доступы.';
+        } else {
+            $user = user_by_email($conn, $email);
+        }
+        if (!$error && !$user) {
+            $user = create_user($conn, $email, $username, $password);
+        } elseif (!$error && $user && !password_verify($password, (string)$user['password_hash'])) {
+            $error = 'Неверный пароль.';
         }
 
-        $_SESSION['email'] = $email;
-        header('Location: /cabinet.php');
-        exit();
+        if (!$error && $user) {
+            $_SESSION['email'] = $email;
+            header('Location: /cabinet.php');
+            exit();
+        }
     }
 }
 ?>
@@ -48,6 +59,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <input type="email" name="email" required placeholder="you@mail.com">
       <label>Ник</label>
       <input name="username" required placeholder="Ваш ник">
+      <label>Пароль</label>
+      <input type="password" name="password" required placeholder="Минимум 6 символов">
       <button class="btn primary" style="margin-top:10px">Войти</button>
     </form>
   </div>
