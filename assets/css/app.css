@@ -1,0 +1,33 @@
+:root{--bg:#070c1c;--bg2:#13254a;--text:#ecf2ff;--muted:#a6b3d1;--line:rgba(255,255,255,.16);--glass:rgba(255,255,255,.08);--dev:#ff4461;--mod:#49a2ff}
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow-x:hidden}
+body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:var(--text);background:radial-gradient(circle at 10% 0%,#1f3d75 0,var(--bg) 36%),linear-gradient(130deg,var(--bg),var(--bg2));}
+.panel{background:var(--glass);border:1px solid var(--line);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-radius:16px;box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.topbar{position:sticky;top:10px;z-index:30;margin:10px;display:flex;align-items:center;gap:10px;padding:10px}.brand{font-weight:700}.menu-btn{border:0;border-radius:10px;padding:8px 10px;background:rgba(255,255,255,.14);color:#fff}
+.app-shell{display:grid;grid-template-columns:280px 1fr;gap:12px;padding:0 10px 10px;min-height:calc(100vh - 72px)}
+.sidebar{padding:12px;display:flex;flex-direction:column;gap:12px}.content{padding:14px;overflow:auto}
+.profile-box{display:flex;gap:10px;align-items:center}.avatar{width:52px;height:52px;border-radius:999px;border:1px solid rgba(255,255,255,.3);object-fit:cover}.avatar.big{width:84px;height:84px}
+.name-line{display:flex;align-items:center;gap:6px}.muted{font-size:12px;color:var(--muted)}
+.nav-links{display:grid;gap:8px}.nav-links a{text-decoration:none;color:#fff;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.06)}.nav-links a.active,.nav-links a:hover{background:rgba(255,255,255,.18)}
+.danger-btn{border:0;padding:10px;border-radius:10px;background:#d73358;color:#fff;cursor:pointer}
+.badge{display:inline-block;width:14px;height:14px;border-radius:50%;position:relative;cursor:help}.badge::after{content:"✓";position:absolute;inset:0;display:grid;place-items:center;font-size:9px;font-weight:700}
+.badge.dev{background:var(--dev);box-shadow:0 0 10px rgba(255,68,97,.65)}.badge.mod{background:var(--mod);box-shadow:0 0 10px rgba(73,162,255,.65)}.badge.user{display:none}
+.quick-actions{display:flex;gap:10px;flex-wrap:wrap}.action{padding:12px 14px;border-radius:12px;background:rgba(255,255,255,.12);color:#fff;text-decoration:none}
+.messages-wrap{display:grid;grid-template-columns:320px 1fr;gap:10px;height:calc(100vh - 140px)}
+.chat-list,.chat-area{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:10px}.chat-list{overflow:auto}
+.chat-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.chat-messages{height:calc(100% - 108px);overflow:auto;padding:8px 0}.msg{padding:9px 12px;background:rgba(255,255,255,.08);border-radius:14px;max-width:74%;margin-bottom:8px;animation:fade .2s ease}.msg.me{margin-left:auto;background:rgba(73,162,255,.35)}
+.chat-input-row{position:sticky;bottom:0;display:flex;gap:8px;background:linear-gradient(transparent,rgba(8,12,28,.9) 20%);padding-top:8px}.chat-input-row input{flex:1}
+input,textarea,button{font:inherit}input,textarea{width:100%;padding:10px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.2);color:#fff}button{border:0;border-radius:12px;padding:10px 12px;background:#2b71ee;color:#fff;cursor:pointer}
+.search-row{display:flex;gap:8px}.friend-item,.chat-item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px;border-radius:12px;background:rgba(255,255,255,.07);margin-bottom:8px}
+.profile-card{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.overlay{position:fixed;inset:0;background:rgba(5,9,18,.45);backdrop-filter:blur(5px);display:none;z-index:20}
+.top-notice{margin-left:auto;font-size:12px;color:#cfe0ff}
+.ghost{background:rgba(255,255,255,.12)}.auth-body{display:grid;place-items:center;min-height:100vh}.auth-card{width:min(420px,94vw);padding:18px}.auth-form{display:grid;gap:10px}.error{padding:9px;border-radius:9px;background:rgba(255,100,130,.25);margin-bottom:10px}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (max-width:940px){
+  .app-shell{grid-template-columns:1fr}
+  .sidebar{position:fixed;left:10px;top:64px;bottom:10px;width:min(280px,85vw);z-index:25;transform:translateX(-120%);transition:.25s}
+  .sidebar.open{transform:translateX(0)}
+  .overlay.show{display:block}
+  .messages-wrap{grid-template-columns:1fr;height:calc(100vh - 160px)}
+  .chat-list.hidden-mobile{display:none}
+}
