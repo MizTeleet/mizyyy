@@ -2,80 +2,66 @@
 require_once __DIR__ . '/../includes/app.php';
 
 $user = require_auth();
-$conn = db();
-if (!$conn) {
-    json_response(['ok' => false, 'message' => 'DB unavailable'], 500);
-}
+$method = $_SERVER['REQUEST_METHOD'];
+$action = $_GET['action'] ?? 'list';
+$body = json_decode((string)file_get_contents('php://input'), true) ?: [];
 
-$action = $_GET['action'] ?? '';
-$payload = json_decode((string)file_get_contents('php://input'), true) ?: [];
-$uid = (int)$user['id'];
+global $conn;
 
 if ($action === 'list') {
-    $stmt = $conn->prepare('SELECT u.public_id, u.username, u.avatar, u.email, u.is_mod
-      FROM friends f JOIN users u ON u.id=f.friend_id
-      WHERE f.user_id=? ORDER BY u.id DESC');
-    $stmt->bind_param('i', $uid);
+    $stmt = $conn->prepare('SELECT u.public_id, u.username, u.avatar, u.role, u.last_seen
+      FROM friends f JOIN users u ON u.id=f.friend_id WHERE f.user_id=? ORDER BY u.username ASC');
+    $stmt->bind_param('i', $user['id']);
     $stmt->execute();
     $res = $stmt->get_result();
 
-    $friends = [];
-    while ($u = $res->fetch_assoc()) {
-        $friends[] = ['id' => (int)$u['public_id'], 'username' => $u['username'], 'avatar' => $u['avatar'], 'role' => badge_role($u)];
+    $items = [];
+    while ($row = $res->fetch_assoc()) {
+        $items[] = [
+            'id' => (int)$row['public_id'],
+            'username' => $row['username'],
+            'avatar' => $row['avatar'],
+            'role' => $row['role'],
+            'online' => time() - (int)$row['last_seen'] < 120,
+        ];
     }
-
-    $newRes = $conn->prepare('SELECT public_id, username, avatar FROM users WHERE id<>? ORDER BY id DESC LIMIT 4');
-    $newRes->bind_param('i', $uid);
-    $newRes->execute();
-    $newQ = $newRes->get_result();
-    $newUsers = [];
-    while ($n = $newQ->fetch_assoc()) {
-        $newUsers[] = ['id' => (int)$n['public_id'], 'username' => $n['username'], 'avatar' => $n['avatar']];
-    }
-
-    json_response(['ok' => true, 'friends' => $friends, 'new_users' => $newUsers]);
+    json_response($items);
 }
 
 if ($action === 'search') {
     $q = trim((string)($_GET['q'] ?? ''));
     $like = '%' . $q . '%';
-    $stmt = $conn->prepare('SELECT public_id, username, avatar, email, is_mod FROM users WHERE id<>? AND (CAST(public_id AS CHAR) LIKE ? OR username LIKE ?) ORDER BY id DESC LIMIT 40');
-    $stmt->bind_param('iss', $uid, $like, $like);
+    $stmt = $conn->prepare('SELECT public_id, username, avatar, role FROM users WHERE id<>? AND (CAST(public_id AS CHAR) LIKE ? OR username LIKE ?) LIMIT 20');
+    $stmt->bind_param('iss', $user['id'], $like, $like);
     $stmt->execute();
     $res = $stmt->get_result();
 
-    $found = [];
-    while ($u = $res->fetch_assoc()) {
-        $found[] = ['id' => (int)$u['public_id'], 'username' => $u['username'], 'avatar' => $u['avatar'], 'role' => badge_role($u)];
+    $items = [];
+    while ($row = $res->fetch_assoc()) {
+        $items[] = [
+            'id' => (int)$row['public_id'],
+            'username' => $row['username'],
+            'avatar' => $row['avatar'],
+            'role' => $row['role'],
+        ];
     }
-
-    json_response(['ok' => true, 'users' => $found]);
+    json_response($items);
 }
 
-if ($action === 'add') {
-    $friendPublic = (int)($payload['friend_id'] ?? 0);
-    $target = user_by_public_id($conn, $friendPublic);
+if ($action === 'add' && $method === 'POST') {
+    $publicId = (int)($body['friend_id'] ?? 0);
+    $find = $conn->prepare('SELECT id FROM users WHERE public_id=? LIMIT 1');
+    $find->bind_param('i', $publicId);
+    $find->execute();
+    $target = $find->get_result()->fetch_assoc();
     if (!$target) {
-        json_response(['ok' => false, 'message' => 'Пользователь не найден'], 404);
+        json_response(['ok' => false, 'error' => 'Not found'], 404);
     }
 
-    $stmt = $conn->prepare('INSERT IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)');
-    $stmt->bind_param('ii', $uid, $target['id']);
-    $stmt->execute();
+    $ins = $conn->prepare('INSERT IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)');
+    $ins->bind_param('ii', $user['id'], $target['id']);
+    $ins->execute();
     json_response(['ok' => true]);
 }
 
-if ($action === 'remove') {
-    $friendPublic = (int)($payload['friend_id'] ?? 0);
-    $target = user_by_public_id($conn, $friendPublic);
-    if (!$target) {
-        json_response(['ok' => true]);
-    }
-
-    $stmt = $conn->prepare('DELETE FROM friends WHERE user_id=? AND friend_id=?');
-    $stmt->bind_param('ii', $uid, $target['id']);
-    $stmt->execute();
-    json_response(['ok' => true]);
-}
-
-json_response(['ok' => false, 'message' => 'Unknown action'], 400);
+json_response(['ok' => false, 'error' => 'Unknown action'], 400);

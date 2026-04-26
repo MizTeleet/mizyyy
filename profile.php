@@ -1,24 +1,25 @@
 <?php
-require_once __DIR__ . '/includes/app.php';
 require_once __DIR__ . '/includes/layout.php';
 
 $user = require_auth();
-render_layout_start('BlackLeet — Profile', 'profile', $user);
+render_layout_start('BlackLeet – Profile', 'profile', $user);
 ?>
-<h1>Профиль</h1>
-<div class="card">
-  <div class="row">
-    <img class="avatar lg" src="<?php echo htmlspecialchars((string)$user['avatar']); ?>" data-me-avatar>
+<section>
+  <h1>Профиль</h1>
+  <div class="profile-card">
+    <img id="profileAvatar" src="<?php echo htmlspecialchars((string)$user['avatar']); ?>" class="avatar big" alt="avatar">
     <div>
-      <h3 style="margin:0"><span data-me-name></span> <span data-me-badge></span></h3>
-      <div class="small">ID: <span data-me-id></span></div>
+      <div id="profileName"><?php echo htmlspecialchars((string)$user['username']); ?></div>
+      <div class="muted">ID: <?php echo (int)$user['public_id']; ?></div>
     </div>
   </div>
-</div>
-<div class="card">
+
   <h3>Смена ника</h3>
-  <p class="small">Можно менять раз в 3 часа, минимум 3 слова.</p>
-  <input id="newNick" placeholder="Например: Black Leet Master">
-  <button class="btn primary" style="margin-top:10px" onclick="saveNick()">Сохранить</button>
-</div>
+  <input id="nickInput" type="text" placeholder="Минимум 3 слова">
+  <button id="saveNickBtn" type="button">Сохранить ник</button>
+
+  <h3>Описание</h3>
+  <textarea id="bioInput" placeholder="Описание профиля"></textarea>
+  <button id="saveBioBtn" type="button">Сохранить описание</button>
+</section>
 <?php render_layout_end(); ?>

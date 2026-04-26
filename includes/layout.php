@@ -3,8 +3,7 @@ require_once __DIR__ . '/app.php';
 
 function render_layout_start(string $title, string $active, array $user): void
 {
-    $badge = badge_html_from_role(badge_role($user));
-    ?>
+?>
 <!doctype html>
 <html lang="ru">
 <head>
@@ -13,49 +12,47 @@ function render_layout_start(string $title, string $active, array $user): void
   <title><?php echo htmlspecialchars($title); ?></title>
   <link rel="stylesheet" href="/assets/css/app.css">
 </head>
-<body>
-<div id="dim" class="dim"></div>
-<div id="notice" class="notice"></div>
-<div class="app">
-  <aside class="panel sidebar">
-    <div class="profile">
-      <img class="avatar" src="<?php echo htmlspecialchars((string)$user['avatar']); ?>" data-me-avatar alt="avatar">
-      <div>
-        <b data-me-name><?php echo htmlspecialchars((string)$user['username']); ?></b>
-        <span data-me-badge><?php echo $badge; ?></span>
-        <div class="small">ID: <span data-me-id><?php echo (int)$user['public_id']; ?></span></div>
-      </div>
-    </div>
-    <div class="nav">
-      <button class="<?php echo $active === 'cabinet' ? 'active' : ''; ?>" onclick="location.href='/cabinet.php'">Главная</button>
-      <button class="<?php echo $active === 'friends' ? 'active' : ''; ?>" onclick="location.href='/friends.php'">Друзья</button>
-      <button class="<?php echo $active === 'messages' ? 'active' : ''; ?>" onclick="location.href='/messages.php'">Сообщения</button>
-      <button class="<?php echo $active === 'profile' ? 'active' : ''; ?>" onclick="location.href='/profile.php'">Профиль</button>
-      <button onclick="location.href='/api/user.php?action=logout'">Выйти</button>
-    </div>
+<body data-page="<?php echo htmlspecialchars($active); ?>" data-user-id="<?php echo (int)$user['public_id']; ?>">
+  <div id="overlay" class="overlay"></div>
+  <header class="topbar panel">
+    <button id="menuToggle" class="menu-btn">☰</button>
+    <div class="brand">BlackLeet</div>
+    <div id="topNotice" class="top-notice"></div>
+  </header>
 
-    <?php if (in_array(badge_role($user), ['dev', 'mod'], true)): ?>
-      <div class="card dev-users">
-        <b>Пользователи сайта</b>
-        <div id="devUsers" style="margin-top:10px"></div>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar panel">
+      <div class="profile-box">
+        <img class="avatar" src="<?php echo htmlspecialchars((string)$user['avatar']); ?>" alt="avatar" id="meAvatar">
+        <div>
+          <div class="name-line">
+            <span id="meName"><?php echo htmlspecialchars((string)$user['username']); ?></span>
+            <span class="badge <?php echo htmlspecialchars((string)$user['role']); ?>" title="<?php echo htmlspecialchars(badge_title((string)$user['role'])); ?>"></span>
+          </div>
+          <div class="muted">ID: <span id="meId"><?php echo (int)$user['public_id']; ?></span></div>
+        </div>
       </div>
-    <?php endif; ?>
 
-    <div class="card new-users-bottom">
-      <b>Новые пользователи</b>
-      <div id="newUsers" style="margin-top:10px"></div>
-    </div>
-  </aside>
-  <main class="panel main">
+      <nav class="nav-links">
+        <a class="<?php echo $active === 'cabinet' ? 'active' : ''; ?>" href="/cabinet.php">Главная</a>
+        <a class="<?php echo $active === 'messages' ? 'active' : ''; ?>" href="/messages.php">Сообщения</a>
+        <a class="<?php echo $active === 'friends' ? 'active' : ''; ?>" href="/friends.php">Друзья</a>
+        <a class="<?php echo $active === 'profile' ? 'active' : ''; ?>" href="/profile.php">Профиль</a>
+      </nav>
+      <button id="logoutBtn" class="danger-btn">Выйти</button>
+    </aside>
+
+    <main class="content panel">
 <?php
 }
 
 function render_layout_end(): void
 {
-    ?>
-  </main>
-</div>
-<script src="/assets/js/app.js"></script>
+?>
+    </main>
+  </div>
+
+  <script src="/assets/js/app.js"></script>
 </body>
 </html>
 <?php

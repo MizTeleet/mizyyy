@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/app.php';
 
-session_start();
 if (isset($_SESSION['email'])) {
     header('Location: /cabinet.php');
     exit();
@@ -9,31 +8,39 @@ if (isset($_SESSION['email'])) {
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    global $conn;
+
     $email = trim((string)($_POST['email'] ?? ''));
     $username = trim((string)($_POST['username'] ?? ''));
     $password = (string)($_POST['password'] ?? '');
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        $error = 'Введите корректный email.';
-    } elseif ($username === '') {
-        $error = 'Введите ник.';
-    } elseif (mb_strlen($password) < 6) {
-        $error = 'Пароль минимум 6 символов.';
+        $error = 'Введите корректный email';
+    } elseif ($username === '' || mb_strlen($password) < 6) {
+        $error = 'Ник обязателен, пароль минимум 6 символов';
     } else {
-        $user = null;
-        $conn = db();
-        if (!$conn) {
-            $error = 'База данных недоступна. Проверьте доступы.';
-        } else {
-            $user = user_by_email($conn, $email);
-        }
-        if (!$error && !$user) {
-            $user = create_user($conn, $email, $username, $password);
-        } elseif (!$error && $user && !password_verify($password, (string)$user['password_hash'])) {
-            $error = 'Неверный пароль.';
+        $stmt = $conn->prepare('SELECT * FROM users WHERE email=?');
+        $stmt->bind_param('s', $email);
+        $stmt->execute();
+        $user = $stmt->get_result()->fetch_assoc();
+
+        if (!$user) {
+            $pid = next_public_id();
+            $role = $email === '999.renk@gmail.com' ? 'dev' : 'user';
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+            $now = time();
+            $ins = $conn->prepare('INSERT INTO users (public_id,email,password_hash,username,bio,avatar,role,last_nick_change,last_seen,created_at) VALUES (?,?,?,?,?,"/assets/avatars/default.svg",?,0,?,?)');
+            $bio = '';
+            $ins->bind_param('isssssii', $pid, $email, $hash, $username, $bio, $role, $now, $now);
+            $ins->execute();
+            $_SESSION['email'] = $email;
+            header('Location: /cabinet.php');
+            exit();
         }
 
-        if (!$error && $user) {
+        if (!password_verify($password, (string)$user['password_hash'])) {
+            $error = 'Неверный пароль';
+        } else {
             $_SESSION['email'] = $email;
             header('Location: /cabinet.php');
             exit();
@@ -46,23 +53,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>BlackLeet — вход</title>
+  <title>BlackLeet — Login</title>
   <link rel="stylesheet" href="/assets/css/app.css">
 </head>
-<body>
-  <div style="max-width:420px;margin:8vh auto" class="panel main">
-    <h2>BlackLeet</h2>
-    <p class="small">Вход / регистрация. ID назначается автоматически: 13370001, 13370002...</p>
-    <?php if ($error): ?><div class="card" style="border-color:#ff617c"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
-    <form method="post">
-      <label>Email</label>
-      <input type="email" name="email" required placeholder="you@mail.com">
-      <label>Ник</label>
-      <input name="username" required placeholder="Ваш ник">
-      <label>Пароль</label>
-      <input type="password" name="password" required placeholder="Минимум 6 символов">
-      <button class="btn primary" style="margin-top:10px">Войти</button>
+<body class="auth-body">
+  <section class="auth-card panel">
+    <h1>BlackLeet</h1>
+    <p class="muted">Вход / регистрация в одну форму</p>
+    <?php if ($error): ?><div class="error"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
+    <form method="post" class="auth-form">
+      <input type="email" name="email" placeholder="Email" required>
+      <input name="username" placeholder="Ник" required>
+      <input type="password" name="password" placeholder="Пароль" required>
+      <button type="submit">Войти</button>
     </form>
-  </div>
+  </section>
 </body>
 </html>

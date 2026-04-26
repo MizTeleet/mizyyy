@@ -1,16 +1,17 @@
 <?php
-require_once __DIR__ . '/includes/app.php';
 require_once __DIR__ . '/includes/layout.php';
 
 $user = require_auth();
-render_layout_start('BlackLeet — Friends', 'friends', $user);
+render_layout_start('BlackLeet – Friends', 'friends', $user);
 ?>
-<h1>Друзья</h1>
-<div class="row" style="margin-bottom:10px">
-  <input id="friendQuery" placeholder="Поиск по ID или нику">
-  <button class="btn primary" onclick="searchFriends()">Найти</button>
-</div>
-<div id="searchResults"></div>
-<hr style="border-color:rgba(255,255,255,.14)">
-<div id="friendsList"></div>
+<section>
+  <h1>Друзья</h1>
+  <div class="search-row">
+    <input id="friendSearch" type="text" placeholder="Поиск по ID или нику">
+    <button id="searchFriendBtn" type="button">Найти</button>
+  </div>
+  <div id="friendsSearchResult"></div>
+  <h2>Мои друзья</h2>
+  <div id="friendsList"></div>
+</section>
 <?php render_layout_end(); ?>

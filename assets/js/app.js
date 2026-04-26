@@ -1,207 +1,245 @@
-const $ = (s, p = document) => p.querySelector(s);
-const $$ = (s, p = document) => [...p.querySelectorAll(s)];
+let currentChatId = null;
+let lastData = '';
+let pollTimer = null;
 
-async function api(url, options = {}) {
+function qs(id) { return document.getElementById(id); }
+
+function badgeHtml(role) {
+  if (role === 'dev') return '<span class="badge dev" title="Разработчик BlackLeet"></span>';
+  if (role === 'mod') return '<span class="badge mod" title="Модератор BlackLeet"></span>';
+  return '';
+}
+
+async function apiGet(url) {
+  const res = await fetch(url);
+  return res.json();
+}
+
+async function apiPost(url, body) {
   const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
   return res.json();
 }
 
-function badgeHtml(role) {
-  if (role === "dev") return `<span class="badge-wrap"><span class="badge-star dev"></span><span class="badge-tip">Разработчик системы BlackLeet</span></span>`;
-  if (role === "mod") return `<span class="badge-wrap"><span class="badge-star"></span><span class="badge-tip">Модератор BlackLeet</span></span>`;
-  return "";
+function createUserRow(item, actionBtn) {
+  const row = document.createElement('div');
+  row.className = 'friend-item';
+
+  const left = document.createElement('div');
+  left.style.display = 'flex';
+  left.style.alignItems = 'center';
+  left.style.gap = '8px';
+
+  const avatar = document.createElement('img');
+  avatar.className = 'avatar';
+  avatar.src = item.avatar;
+
+  const text = document.createElement('div');
+  const name = document.createElement('div');
+  name.innerHTML = `${item.username} ${badgeHtml(item.role)}`;
+  const id = document.createElement('div');
+  id.className = 'muted';
+  id.textContent = `ID: ${item.id}`;
+  text.appendChild(name);
+  text.appendChild(id);
+
+  left.appendChild(avatar);
+  left.appendChild(text);
+  row.appendChild(left);
+  row.appendChild(actionBtn);
+  return row;
 }
 
-function showNotice(msg) {
-  const dim = $("#dim");
-  const n = $("#notice");
-  if (!dim || !n) return;
-  n.innerHTML = msg;
-  dim.classList.add("show");
-  n.classList.add("show");
-  n.onclick = () => {
-    dim.classList.remove("show");
-    n.classList.remove("show");
-    window.location.href = "/messages.php";
-  };
-  setTimeout(() => {
-    dim.classList.remove("show");
-    n.classList.remove("show");
-  }, 3500);
-}
-
-async function loadMe() {
-  const r = await api("/api/user.php?action=me");
-  if (!r.ok) return;
-  const me = r.user;
-  $$("[data-me-name]").forEach((el) => (el.textContent = me.username));
-  $$("[data-me-id]").forEach((el) => (el.textContent = me.id));
-  $$("[data-me-avatar]").forEach((el) => (el.src = me.avatar));
-  $$("[data-me-badge]").forEach((el) => (el.innerHTML = badgeHtml(me.role)));
-}
-
-async function loadFeed() {
-  const box = $("#feedList");
+function renderMessages(messages) {
+  const box = qs('chatMessages');
   if (!box) return;
-  const r = await api("/api/user.php?action=feed");
-  if (!r.ok) return;
 
-  box.innerHTML = r.feed
-    .map(
-      (p) => `<article class="card feed-item">
-      <div class="row between"><h3>${p.author} ${badgeHtml(p.role)}</h3><span class="small">${new Date(p.time * 1000).toLocaleString("ru-RU")}</span></div>
-      <p>${p.text}</p>
-      ${p.image ? `<img src="${p.image}" alt="post">` : ""}
-    </article>`
-    )
-    .join("");
-}
+  box.innerHTML = '';
 
-async function loadFriends() {
-  const box = $("#friendsList");
-  if (!box) return;
-  const r = await api("/api/friends.php?action=list");
-  if (!r.ok) return;
+  messages.forEach((msg) => {
+    const div = document.createElement('div');
+    div.className = 'msg' + (msg.isMe ? ' me' : '');
+    div.textContent = msg.message;
+    box.appendChild(div);
+  });
 
-  box.innerHTML = r.friends
-    .map(
-      (u) => `<div class="card row between">
-      <div class="row"><img class="avatar sm" src="${u.avatar}"><div><b>${u.username}</b> ${badgeHtml(u.role)}<div class="small">ID ${u.id}</div></div></div>
-      <div class="row"><button class="btn" onclick="openChat(${u.id})">Чат</button><button class="btn danger" onclick="removeFriend(${u.id})">Удалить</button></div>
-    </div>`
-    )
-    .join("");
-
-  const newUsers = $("#newUsers");
-  if (newUsers) {
-    newUsers.innerHTML = r.new_users
-      .map((u) => `<div class="row" style="margin-bottom:8px"><img class="avatar sm" src="${u.avatar}"><div>${u.username}<div class="small">ID ${u.id}</div></div></div>`)
-      .join("");
-  }
-}
-
-async function removeFriend(id) {
-  await api("/api/friends.php?action=remove", { method: "POST", body: JSON.stringify({ friend_id: id }) });
-  loadFriends();
-}
-window.removeFriend = removeFriend;
-window.openChat = (id) => (window.location.href = `/messages.php?chat=${id}`);
-
-async function searchFriends() {
-  const q = $("#friendQuery").value.trim();
-  const r = await api(`/api/friends.php?action=search&q=${encodeURIComponent(q)}`);
-  const box = $("#searchResults");
-  box.innerHTML = r.users
-    .map(
-      (u) => `<div class="card row between"><div class="row"><img class="avatar sm" src="${u.avatar}"><div><b>${u.username}</b> ${badgeHtml(u.role)}<div class="small">ID ${u.id}</div></div></div><button class="btn primary" onclick="addFriend(${u.id})">Добавить</button></div>`
-    )
-    .join("");
-}
-window.searchFriends = searchFriends;
-window.addFriend = async (id) => {
-  await api("/api/friends.php?action=add", { method: "POST", body: JSON.stringify({ friend_id: id }) });
-  loadFriends();
-  $("#searchResults").innerHTML = "";
-};
-
-async function loadChats() {
-  const list = $("#chatList");
-  if (!list) return;
-  const r = await api("/api/messages.php?action=chats");
-  list.innerHTML = r.chats
-    .map(
-      (c) => `<button class="btn" style="width:100%;text-align:left;margin-bottom:8px" onclick="selectChat(${c.id})"><div class="row between"><span>${c.username} ${badgeHtml(c.role)}</span><span class="small">${c.online ? "online" : "offline"}</span></div><div class="small">${c.last_text || "Нет сообщений"}</div></button>`
-    )
-    .join("");
-}
-window.selectChat = (id) => {
-  const u = new URL(window.location.href);
-  u.searchParams.set("chat", id);
-  window.location.href = u.toString();
-};
-
-async function loadMessages() {
-  const box = $("#chatMessages");
-  if (!box) return;
-  const params = new URLSearchParams(location.search);
-  const chat = params.get("chat");
-  if (!chat) return;
-
-  const r = await api(`/api/messages.php?action=list&chat=${chat}`);
-  $("#chatTitle").innerHTML = `${r.chat_user.username} ${badgeHtml(r.chat_user.role)} <span class="small">ID ${r.chat_user.id}</span>`;
-  box.innerHTML = r.messages
-    .map(
-      (m) => `<div class="msg ${m.from_me ? "me" : ""}">${m.text}<div class="small">${new Date(m.time * 1000).toLocaleTimeString("ru-RU")}</div></div>`
-    )
-    .join("");
   box.scrollTop = box.scrollHeight;
 }
 
+async function loadChat(chatId) {
+  if (!chatId) return;
+  const data = await apiGet(`/api/messages.php?action=list&chat=${chatId}`);
+  const newData = JSON.stringify(data);
+  if (newData === lastData) return;
+  lastData = newData;
+  renderMessages(data);
+}
+
+async function loadChats() {
+  const box = qs('chatList');
+  if (!box) return;
+
+  const chats = await apiGet('/api/messages.php?action=chats');
+  box.innerHTML = '';
+
+  chats.forEach((chat) => {
+    const btn = document.createElement('button');
+    btn.className = 'chat-item';
+    btn.type = 'button';
+    btn.innerHTML = `<span>${chat.username} ${badgeHtml(chat.role)}</span><span class="muted">${chat.online ? 'online' : 'offline'}</span>`;
+    btn.addEventListener('click', () => {
+      currentChatId = chat.id;
+      lastData = '';
+      const title = qs('chatTitle');
+      if (title) title.textContent = `${chat.username} (ID ${chat.id})`;
+      loadChat(currentChatId);
+      if (window.innerWidth < 940) box.classList.add('hidden-mobile');
+    });
+    box.appendChild(btn);
+  });
+}
+
 async function sendMessage() {
-  const input = $("#msgInput");
-  const params = new URLSearchParams(location.search);
-  const chat = params.get("chat");
-  if (!chat || !input.value.trim()) return;
-  await api("/api/messages.php?action=send", { method: "POST", body: JSON.stringify({ to_id: Number(chat), text: input.value.trim() }) });
-  input.value = "";
-  loadMessages();
-  loadChats();
-}
-window.sendMessage = sendMessage;
+  const input = qs('chatInput');
+  if (!input || !currentChatId) return;
+  const text = input.value.trim();
+  if (!text) return;
 
-async function loadDevUsers() {
-  const wrap = $("#devUsers");
-  if (!wrap) return;
-  const r = await api("/api/user.php?action=all");
-  if (!r.ok) return;
-  wrap.innerHTML = r.users
-    .map(
-      (u) => `<div class="user-row"><div class="row"><img class="avatar sm" src="${u.avatar}"><div><b>${u.username}</b> ${badgeHtml(u.role)}<div class="small">ID ${u.id}</div></div></div><div class="popup"><button class="dots">⋯</button><div class="popup-menu"><button class="btn" onclick="userAction(${u.id},'ban')">Бан</button><button class="btn" onclick="userAction(${u.id},'rename')">Сменить имя</button><button class="btn" onclick="userAction(${u.id},'change_id')">Сменить ID</button><button class="btn" onclick="userAction(${u.id},'freeze')">Заморозить</button></div></div></div>`
-    )
-    .join("");
-
-  $$(".popup .dots").forEach((b) =>
-    b.addEventListener("click", (e) => {
-      e.stopPropagation();
-      b.parentElement.classList.toggle("open");
-    })
-  );
-  document.addEventListener("click", () => $$(".popup").forEach((p) => p.classList.remove("open")));
+  await apiPost('/api/messages.php?action=send', { chat: currentChatId, message: text });
+  input.value = '';
+  lastData = '';
+  await loadChat(currentChatId);
 }
 
-window.userAction = async (id, action) => {
-  let payload = { target_id: id, action };
-  if (action === "rename") payload.value = prompt("Новое имя:") || "";
-  if (action === "freeze") payload.value = Number(prompt("Время заморозки в минутах:") || 0);
-  await api("/api/user.php?action=moderate", { method: "POST", body: JSON.stringify(payload) });
-  loadDevUsers();
-};
+async function loadFriends() {
+  const list = qs('friendsList');
+  if (!list) return;
 
-async function pollNotifications() {
-  const r = await api("/api/messages.php?action=inbox");
-  if (r.ok && r.notifications && r.notifications.length) {
-    const n = r.notifications[0];
-    showNotice(`<div class="row"><img class="avatar sm" src="${n.avatar}"><div><b>${n.username}</b><div>${n.text}</div></div></div>`);
-  }
+  const friends = await apiGet('/api/friends.php?action=list');
+  list.innerHTML = '';
+  friends.forEach((f) => {
+    const btn = document.createElement('button');
+    btn.textContent = 'Чат';
+    btn.addEventListener('click', () => {
+      location.href = '/messages.php';
+      sessionStorage.setItem('open_chat_id', String(f.id));
+    });
+    list.appendChild(createUserRow(f, btn));
+  });
+}
+
+async function searchFriends() {
+  const input = qs('friendSearch');
+  const out = qs('friendsSearchResult');
+  if (!input || !out) return;
+
+  const items = await apiGet(`/api/friends.php?action=search&q=${encodeURIComponent(input.value.trim())}`);
+  out.innerHTML = '';
+
+  items.forEach((f) => {
+    const btn = document.createElement('button');
+    btn.textContent = 'Добавить';
+    btn.addEventListener('click', async () => {
+      await apiPost('/api/friends.php?action=add', { friend_id: f.id });
+      await loadFriends();
+    });
+    out.appendChild(createUserRow(f, btn));
+  });
 }
 
 async function saveNick() {
-  const nick = $("#newNick").value.trim();
-  const r = await api("/api/user.php?action=change_nick", { method: "POST", body: JSON.stringify({ username: nick }) });
-  alert(r.message);
-  if (r.ok) loadMe();
+  const nick = qs('nickInput')?.value?.trim() || '';
+  const res = await apiPost('/api/user.php?action=update_nick', { username: nick });
+  if (res.ok) location.reload();
+  else alert(res.error || 'Ошибка');
 }
-window.saveNick = saveNick;
 
-document.addEventListener("DOMContentLoaded", async () => {
-  await loadMe();
-  await loadFeed();
-  await loadFriends();
-  await loadChats();
-  await loadMessages();
-  await loadDevUsers();
-  setInterval(pollNotifications, 9000);
-});
+async function saveBio() {
+  const bio = qs('bioInput')?.value || '';
+  const res = await apiPost('/api/user.php?action=update_bio', { bio });
+  if (!res.ok) alert(res.error || 'Ошибка');
+}
+
+async function logout() {
+  await apiGet('/api/user.php?action=logout');
+  location.href = '/index.php';
+}
+
+function initMenu() {
+  const sidebar = qs('sidebar');
+  const overlay = qs('overlay');
+  const toggle = qs('menuToggle');
+  if (!sidebar || !overlay || !toggle) return;
+
+  toggle.addEventListener('click', () => {
+    sidebar.classList.toggle('open');
+    overlay.classList.toggle('show');
+  });
+  overlay.addEventListener('click', () => {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('show');
+  });
+}
+
+function initTyping() {
+  const input = qs('chatInput');
+  const typing = qs('typingStatus');
+  if (!input || !typing) return;
+
+  input.addEventListener('input', () => {
+    typing.textContent = 'typing...';
+    clearTimeout(window.__typingTimer);
+    window.__typingTimer = setTimeout(() => {
+      typing.textContent = '';
+    }, 700);
+  });
+}
+
+async function initNotifications() {
+  const notice = qs('topNotice');
+  if (!notice) return;
+  const profile = await apiGet('/api/user.php?action=profile');
+  notice.textContent = `Онлайн: ${profile.username}`;
+}
+
+function initPage() {
+  initMenu();
+  initTyping();
+  initNotifications();
+
+  const page = document.body.dataset.page;
+  qs('logoutBtn')?.addEventListener('click', logout);
+
+  if (page === 'messages') {
+    qs('sendMessageBtn')?.addEventListener('click', sendMessage);
+    qs('backChats')?.addEventListener('click', () => qs('chatList')?.classList.remove('hidden-mobile'));
+    loadChats().then(() => {
+      const pre = Number(sessionStorage.getItem('open_chat_id') || 0);
+      if (pre) {
+        currentChatId = pre;
+        loadChat(currentChatId);
+        sessionStorage.removeItem('open_chat_id');
+      }
+      pollTimer = setInterval(() => loadChat(currentChatId), 1500);
+    });
+  }
+
+  if (page === 'friends') {
+    qs('searchFriendBtn')?.addEventListener('click', searchFriends);
+    loadFriends();
+  }
+
+  if (page === 'profile') {
+    apiGet('/api/user.php?action=profile').then((p) => {
+      const bio = qs('bioInput');
+      if (bio) bio.value = p.bio || '';
+    });
+    qs('saveNickBtn')?.addEventListener('click', saveNick);
+    qs('saveBioBtn')?.addEventListener('click', saveBio);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initPage);
