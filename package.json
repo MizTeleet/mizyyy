@@ -1,0 +1,34 @@
+{
+  "name": "leetfilms",
+  "version": "2.0.0",
+  "description": "LeetFilms desktop app for searching movies via kinopoisk.dev",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --dir"
+  },
+  "build": {
+    "appId": "com.mizyyy.leetfilms",
+    "productName": "LeetFilms",
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "index.html",
+      "app.js",
+      "styles.css",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {}
+}
