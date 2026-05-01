@@ -115,6 +115,26 @@ function openMovieInApp(movieId) {
       };
 
       removeJunk();
+
+      if (!document.getElementById('__leetfilms_overlay_fix')) {
+        const style = document.createElement('style');
+        style.textContent =
+          '.player-overlay-fix {' +
+          'position:absolute;top:0;left:0;width:100%;height:140px;' +
+          'background:linear-gradient(to bottom,#0b1220,transparent);' +
+          'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+          'z-index:2147483647;pointer-events:none;}' +
+          '.player-overlay-fix h1 {color:white;font-size:32px;font-weight:bold;margin:0;}' +
+          '.player-overlay-fix p {color:#aaa;font-size:14px;margin:6px 0 0;}';
+        document.head.appendChild(style);
+
+        const overlay = document.createElement('div');
+        overlay.id = '__leetfilms_overlay_fix';
+        overlay.className = 'player-overlay-fix';
+        overlay.innerHTML = '<h1>LEET FILMS</h1><p>Приятного просмотра</p>';
+        document.body.appendChild(overlay);
+      }
+
       setInterval(removeJunk, 1500);
     })();
   `;

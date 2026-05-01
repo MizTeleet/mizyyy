@@ -319,32 +319,8 @@ function closeModal() {
 
 async function resolveTrailerEmbed(data) {
   const title = (data?.name || '').trim();
-
-  if (data?.trailerUrl?.includes('/embed/')) {
-    return data.trailerUrl;
-  }
-
-  if (data?.trailerUrl) {
-    const fromUrl = data.trailerUrl.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-    if (fromUrl) {
-      return `https://www.youtube.com/embed/${fromUrl[1]}`;
-    }
-  }
-
-  if (title) {
-    try {
-      const found = await api(`/trailer?title=${encodeURIComponent(title)}`);
-      if (found?.trailerEmbed) {
-        return found.trailerEmbed;
-      }
-    } catch {
-      // fallback below
-    }
-
-    return `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(`${title} трейлер`)}`;
-  }
-
-  return '';
+  if (!title) return '';
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${title} трейлер`)}`;
 }
 
 async function openMovieDetails(id) {
@@ -355,7 +331,7 @@ async function openMovieDetails(id) {
 
   try {
     const data = await api(`/movie/${id}/details`);
-    const trailerEmbed = await resolveTrailerEmbed(data);
+    const trailerSearchUrl = await resolveTrailerEmbed(data);
 
     movieDetails.innerHTML = `
       <div class="details-head">
@@ -380,9 +356,7 @@ async function openMovieDetails(id) {
 
       <div class="trailer-wrap">
         <h3>Трейлер</h3>
-        ${trailerEmbed
-          ? `<iframe class="movie-player" src="${trailerEmbed}" title="Трейлер" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`
-          : '<p class="empty-text">Трейлер не найден</p>'}
+        <button id="watchTrailerBtn" class="watch-btn primary" type="button">Смотреть трейлер</button>
       </div>
 
       <div>
@@ -394,6 +368,11 @@ async function openMovieDetails(id) {
     const adguardBtn = document.getElementById('adguardBtn');
     adguardBtn?.addEventListener('click', () => {
       window.electronAPI?.openExternalUrl?.('https://www.mediafire.com/file/wc7q4hrdjva2vhy/Adguard_7.22.7.5271.zip/file');
+    });
+    const watchTrailerBtn = document.getElementById('watchTrailerBtn');
+    watchTrailerBtn?.addEventListener('click', () => {
+      if (!trailerSearchUrl) return;
+      window.electronAPI?.openExternalUrl?.(trailerSearchUrl);
     });
 
     const detailsButtons = movieDetails.querySelectorAll('.film-action .watch-btn');
