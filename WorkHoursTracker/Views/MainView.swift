@@ -204,22 +204,38 @@ struct AddMonthSheet: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        VStack(spacing: 16) {
-                            Picker("Месяц", selection: $selectedMonth) {
-                                ForEach(1...12, id: \.self) { month in
-                                    Text(monthName(month)).tag(month)
-                                }
-                            }
-                            .pickerStyle(.menu)
-                            .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(spacing: 18) {
+                            HStack(spacing: 14) {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Месяц")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(themeManager.palette.secondaryText)
 
-                            Picker("Год", selection: $selectedYear) {
-                                ForEach(years, id: \.self) { year in
-                                    Text(String(year)).tag(year)
+                                    Picker("Месяц", selection: $selectedMonth.animation(.easeInOut(duration: 0.18))) {
+                                        ForEach(1...12, id: \.self) { month in
+                                            Text(monthName(month)).tag(month)
+                                        }
+                                    }
+                                    .pickerStyle(.wheel)
+                                    .frame(height: 142)
+                                    .clipped()
+                                }
+
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Год")
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(themeManager.palette.secondaryText)
+
+                                    Picker("Год", selection: $selectedYear.animation(.easeInOut(duration: 0.18))) {
+                                        ForEach(years, id: \.self) { year in
+                                            Text(String(year)).tag(year)
+                                        }
+                                    }
+                                    .pickerStyle(.wheel)
+                                    .frame(height: 142)
+                                    .clipped()
                                 }
                             }
-                            .pickerStyle(.menu)
-                            .frame(maxWidth: .infinity, alignment: .leading)
 
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Ставка за час")
