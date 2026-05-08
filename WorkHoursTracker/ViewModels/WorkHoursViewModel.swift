@@ -37,32 +37,27 @@ final class WorkHoursViewModel: ObservableObject {
         !months.contains { $0.year == year && $0.month == month }
     }
 
-    func createMonth(year: Int, month: Int) {
+    func createMonth(year: Int, month: Int, hourlyRate: Double) {
         guard canCreateMonth(year: year, month: month) else { return }
-        withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
-            months.append(WorkMonth(year: year, month: month))
-            months.sort { lhs, rhs in
-                lhs.year == rhs.year ? lhs.month < rhs.month : lhs.year < rhs.year
-            }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.86)) {
+            months.append(WorkMonth(year: year, month: month, hourlyRate: hourlyRate))
+            sortMonths()
         }
         persist()
     }
 
     func deleteMonth(_ monthID: WorkMonth.ID) {
         guard let index = months.firstIndex(where: { $0.id == monthID }) else { return }
-        let filename = months[index].backgroundImageFilename
-        ImageStorage.shared.delete(filename: filename)
-        withAnimation(.spring(response: 0.45, dampingFraction: 0.88)) {
+        withAnimation(.spring(response: 0.40, dampingFraction: 0.88)) {
             months.remove(at: index)
         }
         persist()
     }
 
-    func deleteBackgroundImage(for monthID: WorkMonth.ID) {
+    func updateHourlyRate(_ hourlyRate: Double, for monthID: WorkMonth.ID) {
         guard let index = months.firstIndex(where: { $0.id == monthID }) else { return }
-        ImageStorage.shared.delete(filename: months[index].backgroundImageFilename)
-        withAnimation(.easeInOut(duration: 0.28)) {
-            months[index].backgroundImageFilename = nil
+        withAnimation(.easeInOut(duration: 0.22)) {
+            months[index].hourlyRate = hourlyRate
         }
         persist()
     }
@@ -73,6 +68,10 @@ final class WorkHoursViewModel: ObservableObject {
 
     func totalHours(for monthID: WorkMonth.ID) -> Double {
         month(with: monthID)?.totalHours ?? 0
+    }
+
+    func totalEarnings(for monthID: WorkMonth.ID) -> Double {
+        month(with: monthID)?.totalEarnings ?? 0
     }
 
     func dateRange(for month: WorkMonth) -> ClosedRange<Date> {
@@ -114,15 +113,10 @@ final class WorkHoursViewModel: ObservableObject {
         persist()
     }
 
-    func setBackgroundImage(_ image: UIImage, for monthID: WorkMonth.ID) {
-        guard let index = months.firstIndex(where: { $0.id == monthID }) else { return }
-        let oldFilename = months[index].backgroundImageFilename
-        guard let filename = ImageStorage.shared.save(image, previousFilename: oldFilename) else { return }
-
-        withAnimation(.easeInOut(duration: 0.28)) {
-            months[index].backgroundImageFilename = filename
+    private func sortMonths() {
+        months.sort { lhs, rhs in
+            lhs.year == rhs.year ? lhs.month < rhs.month : lhs.year < rhs.year
         }
-        persist()
     }
 
     private func persist() {

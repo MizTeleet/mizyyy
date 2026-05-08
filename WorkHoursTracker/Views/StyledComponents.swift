@@ -1,8 +1,13 @@
 import SwiftUI
 
-struct AnimatedGradientBackground: View {
+struct PremiumBackground: View {
     @EnvironmentObject private var themeManager: ThemeManager
-    @State private var animate = false
+    let animated: Bool
+    @State private var moveGlow = false
+
+    init(animated: Bool = true) {
+        self.animated = animated
+    }
 
     var body: some View {
         ZStack {
@@ -10,48 +15,53 @@ struct AnimatedGradientBackground: View {
 
             LinearGradient(
                 colors: gradientColors,
-                startPoint: animate ? .topLeading : .bottomLeading,
-                endPoint: animate ? .bottomTrailing : .topTrailing
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
             )
             .ignoresSafeArea()
-            .animation(.easeInOut(duration: 8).repeatForever(autoreverses: true), value: animate)
 
-            glowBlob(color: themeManager.palette.accent.opacity(themeManager.selectedTheme == .dark ? 0.10 : 0.34), size: 340)
-                .offset(x: animate ? -130 : -210, y: animate ? -250 : -160)
+            glow(color: themeManager.palette.accent.opacity(themeManager.selectedTheme == .dark ? 0.08 : 0.22), size: 240)
+                .offset(x: animated && moveGlow ? -110 : -155, y: animated && moveGlow ? -220 : -180)
 
-            glowBlob(color: Color.pink.opacity(themeManager.selectedTheme == .neon ? 0.30 : 0.14), size: 300)
-                .offset(x: animate ? 190 : 130, y: animate ? 260 : 170)
-
-            glowBlob(color: Color.purple.opacity(themeManager.selectedTheme == .glass ? 0.28 : 0.16), size: 260)
-                .offset(x: animate ? 80 : -40, y: animate ? -30 : 80)
+            glow(color: Color.purple.opacity(themeManager.selectedTheme == .glass ? 0.18 : 0.10), size: 220)
+                .offset(x: animated && moveGlow ? 145 : 115, y: animated && moveGlow ? 230 : 190)
         }
-        .animation(.easeInOut(duration: 0.45), value: themeManager.selectedTheme)
-        .onAppear { animate = true }
+        .animation(animated ? .easeInOut(duration: 6).repeatForever(autoreverses: true) : nil, value: moveGlow)
+        .animation(.easeInOut(duration: 0.28), value: themeManager.selectedTheme)
+        .onAppear {
+            guard animated else { return }
+            moveGlow = true
+        }
     }
 
     private var gradientColors: [Color] {
         switch themeManager.selectedTheme {
         case .dark:
-            return [Color.black, Color(red: 0.08, green: 0.08, blue: 0.10), Color.black]
+            return [Color.black, Color(red: 0.055, green: 0.06, blue: 0.075), Color.black]
         case .neon:
-            return [Color(red: 0.02, green: 0.00, blue: 0.10), Color(red: 0.08, green: 0.02, blue: 0.22), Color(red: 0.00, green: 0.13, blue: 0.18), Color.black]
+            return [Color(red: 0.018, green: 0.00, blue: 0.075), Color(red: 0.035, green: 0.02, blue: 0.13), Color(red: 0.00, green: 0.08, blue: 0.11), Color.black]
         case .glass:
-            return [Color(red: 0.08, green: 0.10, blue: 0.18), Color.blue.opacity(0.38), Color.purple.opacity(0.30), Color.black.opacity(0.75)]
+            return [Color(red: 0.07, green: 0.09, blue: 0.15), Color.blue.opacity(0.20), Color.purple.opacity(0.18), Color.black.opacity(0.88)]
         }
     }
 
-    private func glowBlob(color: Color, size: CGFloat) -> some View {
+    private func glow(color: Color, size: CGFloat) -> some View {
         Circle()
             .fill(color)
             .frame(width: size, height: size)
-            .blur(radius: size * 0.22)
-            .animation(.easeInOut(duration: 7).repeatForever(autoreverses: true), value: animate)
+            .blur(radius: 38)
     }
 }
 
 struct AppBackground: View {
+    let animated: Bool
+
+    init(animated: Bool = true) {
+        self.animated = animated
+    }
+
     var body: some View {
-        AnimatedGradientBackground()
+        PremiumBackground(animated: animated)
     }
 }
 
@@ -73,38 +83,30 @@ struct ThemedCardModifier: ViewModifier {
         content
             .background(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .fill(themeManager.palette.surface.opacity(themeManager.palette.cardOpacity))
+                    .fill(themeManager.palette.surface.opacity(themeManager.selectedTheme == .glass ? 0.50 : themeManager.palette.cardOpacity))
                     .background {
                         if themeManager.selectedTheme == .glass {
                             RoundedRectangle(cornerRadius: 24, style: .continuous)
                                 .fill(.ultraThinMaterial)
-                                .blur(radius: 0.4)
                         }
                     }
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [themeManager.palette.accent.opacity(0.42), Color.white.opacity(0.10), themeManager.palette.accent.opacity(0.18)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
+                    .stroke(themeManager.palette.accent.opacity(themeManager.selectedTheme == .dark ? 0.12 : 0.26), lineWidth: 1)
             )
-            .shadow(color: themeManager.palette.shadow, radius: themeManager.selectedTheme == .neon ? 22 : 16, x: 0, y: 14)
-            .shadow(color: themeManager.palette.accent.opacity(themeManager.palette.glowOpacity), radius: 24, x: 0, y: 0)
-            .animation(.easeInOut(duration: 0.35), value: themeManager.selectedTheme)
+            .shadow(color: themeManager.palette.shadow.opacity(0.82), radius: 12, x: 0, y: 8)
+            .shadow(color: themeManager.palette.accent.opacity(themeManager.palette.glowOpacity * 0.45), radius: 14, x: 0, y: 0)
+            .animation(.easeInOut(duration: 0.25), value: themeManager.selectedTheme)
     }
 }
 
 struct PremiumPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .scaleEffect(configuration.isPressed ? 0.965 : 1)
-            .brightness(configuration.isPressed ? 0.04 : 0)
-            .animation(.spring(response: 0.28, dampingFraction: 0.72), value: configuration.isPressed)
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .brightness(configuration.isPressed ? 0.035 : 0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.78), value: configuration.isPressed)
     }
 }
 

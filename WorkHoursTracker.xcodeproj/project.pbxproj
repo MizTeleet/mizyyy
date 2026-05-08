@@ -11,11 +11,9 @@
 		AA9AD1C252B6B66A46EE740A /* WorkModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2CD40195FFEAF7ED7BFCA8 /* WorkModels.swift */; };
 		5B2D7578F6B3844F72238E96 /* AppTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF8A864A16F2198F625C65FB /* AppTheme.swift */; };
 		2F3D8F87C5391D60E9050586 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61AEDA13C4FFACABA7282E22 /* ThemeManager.swift */; };
-		01F3ED305AE21A4F523D0EEE /* ImageStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61AFFBFD02280B588BB2AF84 /* ImageStorage.swift */; };
 		24FFCB0D2AE68F104098637D /* WorkDataStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8C3BF80ED70A8BC1E440AE2 /* WorkDataStore.swift */; };
 		8D273EEBAF6657988F76575E /* WorkHoursViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18B03E9456A013F0E2A0D48D /* WorkHoursViewModel.swift */; };
 		29CF24D5C7CA42627564D9C0 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0205BB917D67B0CF5289D58F /* Formatters.swift */; };
-		26CCAF864B690811619D265E /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4B7FBCE10C748AECC8EED64 /* ImagePicker.swift */; };
 		0175A94ADBAB7D967A20DCFD /* StyledComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45251410EA8A6E186ABED2BA /* StyledComponents.swift */; };
 		5E57542962A8264819FFAC12 /* MainView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E15EB446F15D820E30E313C /* MainView.swift */; };
 		60F8C526EE884DC39318F05F /* MonthCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D96F1EB5FD192CC5330B150E /* MonthCardView.swift */; };
@@ -29,11 +27,9 @@
 		2F2CD40195FFEAF7ED7BFCA8 /* WorkModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models/WorkModels.swift; sourceTree = "<group>"; };
 		DF8A864A16F2198F625C65FB /* AppTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/AppTheme.swift; sourceTree = "<group>"; };
 		61AEDA13C4FFACABA7282E22 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme/ThemeManager.swift; sourceTree = "<group>"; };
-		61AFFBFD02280B588BB2AF84 /* ImageStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/ImageStorage.swift; sourceTree = "<group>"; };
 		F8C3BF80ED70A8BC1E440AE2 /* WorkDataStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Services/WorkDataStore.swift; sourceTree = "<group>"; };
 		18B03E9456A013F0E2A0D48D /* WorkHoursViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModels/WorkHoursViewModel.swift; sourceTree = "<group>"; };
 		0205BB917D67B0CF5289D58F /* Formatters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Utilities/Formatters.swift; sourceTree = "<group>"; };
-		A4B7FBCE10C748AECC8EED64 /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/ImagePicker.swift; sourceTree = "<group>"; };
 		45251410EA8A6E186ABED2BA /* StyledComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/StyledComponents.swift; sourceTree = "<group>"; };
 		8E15EB446F15D820E30E313C /* MainView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/MainView.swift; sourceTree = "<group>"; };
 		D96F1EB5FD192CC5330B150E /* MonthCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/MonthCardView.swift; sourceTree = "<group>"; };
@@ -70,11 +66,9 @@
 				2F2CD40195FFEAF7ED7BFCA8 /* WorkModels.swift */,
 				DF8A864A16F2198F625C65FB /* AppTheme.swift */,
 				61AEDA13C4FFACABA7282E22 /* ThemeManager.swift */,
-				61AFFBFD02280B588BB2AF84 /* ImageStorage.swift */,
 				F8C3BF80ED70A8BC1E440AE2 /* WorkDataStore.swift */,
 				18B03E9456A013F0E2A0D48D /* WorkHoursViewModel.swift */,
 				0205BB917D67B0CF5289D58F /* Formatters.swift */,
-				A4B7FBCE10C748AECC8EED64 /* ImagePicker.swift */,
 				45251410EA8A6E186ABED2BA /* StyledComponents.swift */,
 				8E15EB446F15D820E30E313C /* MainView.swift */,
 				D96F1EB5FD192CC5330B150E /* MonthCardView.swift */,
@@ -166,11 +160,9 @@
 				AA9AD1C252B6B66A46EE740A /* WorkModels.swift in Sources */,
 				5B2D7578F6B3844F72238E96 /* AppTheme.swift in Sources */,
 				2F3D8F87C5391D60E9050586 /* ThemeManager.swift in Sources */,
-				01F3ED305AE21A4F523D0EEE /* ImageStorage.swift in Sources */,
 				24FFCB0D2AE68F104098637D /* WorkDataStore.swift in Sources */,
 				8D273EEBAF6657988F76575E /* WorkHoursViewModel.swift in Sources */,
 				29CF24D5C7CA42627564D9C0 /* Formatters.swift in Sources */,
-				26CCAF864B690811619D265E /* ImagePicker.swift in Sources */,
 				0175A94ADBAB7D967A20DCFD /* StyledComponents.swift in Sources */,
 				5E57542962A8264819FFAC12 /* MainView.swift in Sources */,
 				60F8C526EE884DC39318F05F /* MonthCardView.swift in Sources */,

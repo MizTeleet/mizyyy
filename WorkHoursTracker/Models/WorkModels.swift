@@ -4,20 +4,20 @@ struct WorkMonth: Identifiable, Codable, Equatable {
     let id: UUID
     var year: Int
     var month: Int
-    var backgroundImageFilename: String?
+    var hourlyRate: Double
     var days: [WorkDay]
 
     init(
         id: UUID = UUID(),
         year: Int,
         month: Int,
-        backgroundImageFilename: String? = nil,
+        hourlyRate: Double = 0,
         days: [WorkDay] = []
     ) {
         self.id = id
         self.year = year
         self.month = month
-        self.backgroundImageFilename = backgroundImageFilename
+        self.hourlyRate = hourlyRate
         self.days = days
     }
 
@@ -25,6 +25,27 @@ struct WorkMonth: Identifiable, Codable, Equatable {
         days.reduce(0) { total, day in
             total + (day.isWorked ? day.hours : 0)
         }
+    }
+
+    var totalEarnings: Double {
+        totalHours * hourlyRate
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case year
+        case month
+        case hourlyRate
+        case days
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+        year = try container.decode(Int.self, forKey: .year)
+        month = try container.decode(Int.self, forKey: .month)
+        hourlyRate = try container.decodeIfPresent(Double.self, forKey: .hourlyRate) ?? 0
+        days = try container.decodeIfPresent([WorkDay].self, forKey: .days) ?? []
     }
 }
 

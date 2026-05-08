@@ -3,25 +3,13 @@ import SwiftUI
 struct MonthCardView: View {
     @EnvironmentObject private var viewModel: WorkHoursViewModel
     @EnvironmentObject private var themeManager: ThemeManager
-    @State private var shimmer = false
 
     let month: WorkMonth
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
-            background
-
+            cardBackground
             readabilityOverlay
-
-            if themeManager.selectedTheme == .neon {
-                LinearGradient(
-                    colors: [.clear, themeManager.palette.accent.opacity(shimmer ? 0.18 : 0.04), .clear],
-                    startPoint: shimmer ? .topLeading : .bottomTrailing,
-                    endPoint: shimmer ? .bottomTrailing : .topLeading
-                )
-                .blendMode(.screen)
-                .animation(.easeInOut(duration: 3.8).repeatForever(autoreverses: true), value: shimmer)
-            }
 
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top) {
@@ -29,29 +17,11 @@ struct MonthCardView: View {
                         Text(viewModel.title(for: month))
                             .font(.title2.bold())
                             .foregroundStyle(.white)
-                            .shadow(color: .black.opacity(0.55), radius: 8, x: 0, y: 3)
+                            .shadow(color: .black.opacity(0.45), radius: 6, x: 0, y: 2)
 
                         Text("\(month.days.count) записей")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.76))
-                            .shadow(color: .black.opacity(0.45), radius: 6, x: 0, y: 2)
-                    }
-
-                    Spacer(minLength: 58)
-                }
-
-                Spacer()
-
-                HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Всего часов")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.68))
-
-                        Text("\(Formatters.hours(month.totalHours)) ч")
-                            .font(.title3.bold())
-                            .foregroundStyle(themeManager.palette.accent)
-                            .shadow(color: themeManager.palette.accent.opacity(0.45), radius: 10, x: 0, y: 0)
+                            .foregroundStyle(.white.opacity(0.74))
                     }
 
                     Spacer()
@@ -60,8 +30,16 @@ struct MonthCardView: View {
                         .font(.headline.weight(.semibold))
                         .foregroundStyle(.white.opacity(0.78))
                         .padding(10)
-                        .background(Circle().fill(.white.opacity(0.12)))
-                        .overlay(Circle().stroke(.white.opacity(0.16), lineWidth: 1))
+                        .background(Circle().fill(.white.opacity(0.10)))
+                        .overlay(Circle().stroke(.white.opacity(0.14), lineWidth: 1))
+                }
+
+                Spacer()
+
+                HStack(alignment: .bottom, spacing: 14) {
+                    metric(title: "Всего", value: "\(Formatters.hours(month.totalHours)) ч")
+                    metric(title: "Ставка", value: Formatters.rate(month.hourlyRate))
+                    metric(title: "Заработал", value: Formatters.money(month.totalEarnings), accent: true)
                 }
             }
             .padding(20)
@@ -72,57 +50,55 @@ struct MonthCardView: View {
             RoundedRectangle(cornerRadius: 30, style: .continuous)
                 .stroke(
                     LinearGradient(
-                        colors: [.white.opacity(0.22), themeManager.palette.accent.opacity(0.30), .white.opacity(0.08)],
+                        colors: [.white.opacity(0.18), themeManager.palette.accent.opacity(0.26), .white.opacity(0.06)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     ),
                     lineWidth: 1
                 )
         )
-        .shadow(color: .black.opacity(0.34), radius: 18, x: 0, y: 14)
-        .shadow(color: themeManager.palette.accent.opacity(themeManager.palette.glowOpacity), radius: shimmer ? 28 : 18, x: 0, y: 0)
-        .animation(.easeInOut(duration: 0.35), value: themeManager.selectedTheme)
-        .onAppear { shimmer = true }
+        .shadow(color: .black.opacity(0.30), radius: 14, x: 0, y: 10)
+        .shadow(color: themeManager.palette.accent.opacity(themeManager.palette.glowOpacity * 0.45), radius: 14, x: 0, y: 0)
+        .animation(.easeInOut(duration: 0.25), value: themeManager.selectedTheme)
     }
 
-    @ViewBuilder
-    private var background: some View {
-        if let image = ImageStorage.shared.load(filename: month.backgroundImageFilename) {
-            Image(uiImage: image)
-                .resizable()
-                .scaledToFill()
-        } else {
-            LinearGradient(
-                colors: [
-                    themeManager.palette.elevatedSurface,
-                    themeManager.palette.surface,
-                    themeManager.palette.accent.opacity(themeManager.selectedTheme == .dark ? 0.18 : 0.38)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        }
+    private var cardBackground: some View {
+        LinearGradient(
+            colors: [
+                themeManager.palette.elevatedSurface,
+                themeManager.palette.surface,
+                themeManager.palette.accent.opacity(themeManager.selectedTheme == .dark ? 0.14 : 0.30)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
     }
 
     private var readabilityOverlay: some View {
         ZStack {
-            Color.black.opacity(month.backgroundImageFilename == nil ? 0.20 : 0.42)
+            Color.black.opacity(0.18)
 
             LinearGradient(
-                colors: [
-                    Color.black.opacity(0.78),
-                    Color.black.opacity(0.42),
-                    Color.black.opacity(0.70)
-                ],
+                colors: [Color.black.opacity(0.68), Color.black.opacity(0.26), Color.black.opacity(0.62)],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-
-            LinearGradient(
-                colors: [.clear, Color.black.opacity(0.76)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
         }
+    }
+
+    private func metric(title: String, value: String, accent: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.white.opacity(0.62))
+
+            Text(value)
+                .font(.headline.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .foregroundStyle(accent ? themeManager.palette.accent : .white)
+                .shadow(color: accent ? themeManager.palette.accent.opacity(0.35) : .clear, radius: 8, x: 0, y: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

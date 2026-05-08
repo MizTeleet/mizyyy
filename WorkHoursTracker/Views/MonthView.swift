@@ -7,6 +7,7 @@ struct MonthView: View {
     @State private var isAddingDay = false
     @State private var addButtonPressed = false
     @State private var appeared = false
+    @State private var isEditingRate = false
 
     let monthID: WorkMonth.ID
 
@@ -42,10 +43,6 @@ struct MonthView: View {
                         } header: {
                             monthHeader(month)
                                 .listRowInsets(EdgeInsets())
-                        } footer: {
-                            SignatureView()
-                                .frame(maxWidth: .infinity)
-                                .padding(.top, 12)
                         }
                     }
                     .listStyle(.plain)
@@ -94,6 +91,13 @@ struct MonthView: View {
                 }
             }
         }
+        .sheet(isPresented: $isEditingRate) {
+            if let month {
+                RateEditorSheet(month: month) { newRate in
+                    viewModel.updateHourlyRate(newRate, for: monthID)
+                }
+            }
+        }
         .onAppear { appeared = true }
     }
 
@@ -108,6 +112,19 @@ struct MonthView: View {
                 .font(.subheadline)
                 .textCase(nil)
                 .foregroundStyle(themeManager.palette.secondaryText)
+
+            HStack(spacing: 10) {
+                Text("Ставка: \(Formatters.rate(month.hourlyRate))")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(themeManager.palette.accent)
+
+                Button("Изменить ставку") {
+                    isEditingRate = true
+                }
+                .font(.subheadline.weight(.semibold))
+                .buttonStyle(.bordered)
+                .tint(themeManager.palette.accent)
+            }
         }
         .padding(.horizontal, 18)
         .padding(.top, 14)
@@ -115,20 +132,35 @@ struct MonthView: View {
     }
 
     private var totalBar: some View {
-        HStack {
-            Text("Всего:")
-                .font(.headline)
-                .foregroundStyle(themeManager.palette.secondaryText)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Text("Всего:")
+                    .font(.headline)
+                    .foregroundStyle(themeManager.palette.secondaryText)
 
-            Text("\(Formatters.hours(viewModel.totalHours(for: monthID))) часов")
-                .font(.title3.bold())
-                .foregroundStyle(themeManager.palette.primaryText)
-                .animation(.easeInOut(duration: 0.25), value: viewModel.totalHours(for: monthID))
+                Text("\(Formatters.hours(viewModel.totalHours(for: monthID))) часов")
+                    .font(.title3.bold())
+                    .foregroundStyle(themeManager.palette.primaryText)
+                    .animation(.easeInOut(duration: 0.25), value: viewModel.totalHours(for: monthID))
 
-            Spacer()
+                Spacer()
+            }
+
+            HStack {
+                Text("Заработал:")
+                    .font(.headline)
+                    .foregroundStyle(themeManager.palette.secondaryText)
+
+                Text(Formatters.money(viewModel.totalEarnings(for: monthID)))
+                    .font(.title3.bold())
+                    .foregroundStyle(themeManager.palette.accent)
+                    .animation(.easeInOut(duration: 0.25), value: viewModel.totalEarnings(for: monthID))
+
+                Spacer()
+            }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 16)
+        .padding(.vertical, 14)
         .background(totalBarBackground)
     }
 
@@ -167,5 +199,78 @@ struct MonthView: View {
         .rotationEffect(.degrees(addButtonPressed ? 90 : 0))
         .animation(.spring(response: 0.25, dampingFraction: 0.55), value: addButtonPressed)
         .accessibilityLabel("Добавить день")
+    }
+}
+
+struct RateEditorSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var themeManager: ThemeManager
+
+    let month: WorkMonth
+    let onSave: (Double) -> Void
+
+    @State private var rateText: String
+
+    init(month: WorkMonth, onSave: @escaping (Double) -> Void) {
+        self.month = month
+        self.onSave = onSave
+        _rateText = State(initialValue: Formatters.rate(month.hourlyRate))
+    }
+
+    private var rate: Double {
+        Double(rateText.replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private var canSave: Bool {
+        rate > 0
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                AppBackground(animated: false)
+
+                VStack(alignment: .leading, spacing: 18) {
+                    Text("Новая ставка за час")
+                        .font(.title2.bold())
+                        .foregroundStyle(themeManager.palette.primaryText)
+
+                    TextField("31.4", text: $rateText)
+                        .keyboardType(.decimalPad)
+                        .textFieldStyle(.plain)
+                        .font(.title3.bold())
+                        .foregroundStyle(themeManager.palette.primaryText)
+                        .padding(16)
+                        .background(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .fill(themeManager.palette.elevatedSurface.opacity(0.82))
+                        )
+
+                    Text("Текущая ставка: \(Formatters.rate(month.hourlyRate))")
+                        .font(.subheadline)
+                        .foregroundStyle(themeManager.palette.secondaryText)
+
+                    Spacer()
+                }
+                .padding(20)
+            }
+            .navigationTitle("Изменить ставку")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Отмена") { dismiss() }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Сохранить") {
+                        onSave(rate)
+                        dismiss()
+                    }
+                    .disabled(!canSave)
+                }
+            }
+        }
+        .tint(themeManager.palette.accent)
     }
 }
