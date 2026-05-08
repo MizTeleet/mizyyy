@@ -33,6 +33,40 @@ final class WorkHoursViewModel: ObservableObject {
         months.first { $0.id == id }
     }
 
+    func canCreateMonth(year: Int, month: Int) -> Bool {
+        !months.contains { $0.year == year && $0.month == month }
+    }
+
+    func createMonth(year: Int, month: Int) {
+        guard canCreateMonth(year: year, month: month) else { return }
+        withAnimation(.spring(response: 0.55, dampingFraction: 0.82)) {
+            months.append(WorkMonth(year: year, month: month))
+            months.sort { lhs, rhs in
+                lhs.year == rhs.year ? lhs.month < rhs.month : lhs.year < rhs.year
+            }
+        }
+        persist()
+    }
+
+    func deleteMonth(_ monthID: WorkMonth.ID) {
+        guard let index = months.firstIndex(where: { $0.id == monthID }) else { return }
+        let filename = months[index].backgroundImageFilename
+        ImageStorage.shared.delete(filename: filename)
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.88)) {
+            months.remove(at: index)
+        }
+        persist()
+    }
+
+    func deleteBackgroundImage(for monthID: WorkMonth.ID) {
+        guard let index = months.firstIndex(where: { $0.id == monthID }) else { return }
+        ImageStorage.shared.delete(filename: months[index].backgroundImageFilename)
+        withAnimation(.easeInOut(duration: 0.28)) {
+            months[index].backgroundImageFilename = nil
+        }
+        persist()
+    }
+
     func days(for monthID: WorkMonth.ID) -> [WorkDay] {
         month(with: monthID)?.days.sorted { $0.date < $1.date } ?? []
     }

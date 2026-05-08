@@ -67,9 +67,11 @@ struct MonthView: View {
             .offset(y: appeared ? 0 : 12)
             .animation(.easeInOut(duration: 0.28), value: appeared)
 
-            addButton
-                .padding(.trailing, 22)
-                .padding(.bottom, 88)
+            if month != nil {
+                addButton
+                    .padding(.trailing, 22)
+                    .padding(.bottom, 88)
+            }
         }
         .navigationTitle(month.map { viewModel.title(for: $0) } ?? "Месяц")
         .navigationBarTitleDisplayMode(.inline)
@@ -160,6 +162,7 @@ struct MonthView: View {
                 .background(Circle().fill(themeManager.palette.accent))
                 .shadow(color: themeManager.palette.accent.opacity(0.52), radius: 18, x: 0, y: 8)
         }
+        .buttonStyle(PremiumPressStyle())
         .scaleEffect(addButtonPressed ? 0.88 : 1)
         .rotationEffect(.degrees(addButtonPressed ? 90 : 0))
         .animation(.spring(response: 0.25, dampingFraction: 0.55), value: addButtonPressed)
