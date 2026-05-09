@@ -1,14 +1,14 @@
 # Android WorkHoursTracker
 
-Android версия приложения реализована на Kotlin + Jetpack Compose в модуле `app`.
+Полная Android Studio версия приложения находится в модуле `app` и реализована на Kotlin + Jetpack Compose + Material3.
 
-## Сборка APK
+## Открыть в Android Studio
 
-```bash
-JAVA_HOME=/path/to/jdk17 ./gradlew :app:assembleDebug
-```
+1. Откройте корень репозитория как Gradle/Android проект.
+2. Дождитесь Gradle Sync.
+3. Выполните `Build > Build Bundle(s) / APK(s) > Build APK(s)`.
 
-В текущем репозитории можно также использовать установленный Gradle:
+## Сборка из терминала
 
 ```bash
 JAVA_HOME=/path/to/jdk17 gradle :app:assembleDebug
@@ -20,4 +20,8 @@ APK после успешной сборки будет находиться в:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-> Для сборки нужен Android SDK и доступ к Google Maven / Maven Central для загрузки Android Gradle Plugin и Compose dependencies.
+## Требования
+
+- Android Studio с Android SDK Platform 35.
+- JDK 17.
+- Доступ к Google Maven / Maven Central для загрузки Android Gradle Plugin, Kotlin plugin и Compose dependencies.

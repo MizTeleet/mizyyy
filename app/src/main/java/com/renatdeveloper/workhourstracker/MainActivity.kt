@@ -57,7 +57,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -65,7 +64,6 @@ import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -96,6 +94,14 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.renatdeveloper.workhourstracker.ui.theme.CyanGlow
+import com.renatdeveloper.workhourstracker.ui.theme.DangerRed
+import com.renatdeveloper.workhourstracker.ui.theme.GlassSurface
+import com.renatdeveloper.workhourstracker.ui.theme.NeonBlack
+import com.renatdeveloper.workhourstracker.ui.theme.PositiveGreen
+import com.renatdeveloper.workhourstracker.ui.theme.PurpleGlow
+import com.renatdeveloper.workhourstracker.ui.theme.SoftText
+import com.renatdeveloper.workhourstracker.ui.theme.WorkHoursTrackerTheme
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.json.JSONArray
@@ -264,7 +270,7 @@ fun WorkHoursAndroidApp() {
     var selectedMonthId by remember { mutableStateOf<String?>(null) }
     val selectedMonth = months.firstOrNull { it.id == selectedMonthId }
 
-    MaterialTheme(colorScheme = darkColorScheme(background = NeonBlack, surface = GlassSurface, primary = CyanGlow)) {
+    WorkHoursTrackerTheme {
         Surface(color = Color.Transparent) {
             AnimatedContent(targetState = selectedMonth, label = "root") { month ->
                 if (month == null) {
@@ -420,7 +426,7 @@ private fun MonthScreen(month: WorkMonth, vm: WorkHoursAndroidViewModel, onBack:
                     CollapsingMonthHeader(month = month, collapse = collapse, onBack = onBack, onRate = { editRate = true })
                 }
                 items(month.days, key = { it.id }) { day ->
-                    SwipeDayRow(day = day, hourlyRate = month.hourlyRate, onClick = { showDayEditor = day }, onDelete = { vm.deleteDay(month.id, day.id) })
+                    SwipeDayRow(day = day, monthNumber = month.month, hourlyRate = month.hourlyRate, onClick = { showDayEditor = day }, onDelete = { vm.deleteDay(month.id, day.id) })
                 }
             }
             BottomStatsBar(month = month, onAdd = { showDayEditor = WorkDay(dayOfMonth = 1.coerceAtMost(daysInMonth(month.month, month.year))) })
@@ -458,25 +464,25 @@ private fun CollapsingMonthHeader(month: WorkMonth, collapse: Float, onBack: () 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeDayRow(day: WorkDay, hourlyRate: Double, onClick: () -> Unit, onDelete: () -> Unit) {
+private fun SwipeDayRow(day: WorkDay, monthNumber: Int, hourlyRate: Double, onClick: () -> Unit, onDelete: () -> Unit) {
     val state = rememberSwipeToDismissBoxState(confirmValueChange = {
         if (it != SwipeToDismissBoxValue.Settled) {
             onDelete(); true
         } else false
     })
     SwipeToDismissBox(state = state, backgroundContent = { Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Color(0xFF3A0712))) }, content = {
-        DayCard(day = day, hourlyRate = hourlyRate, onClick = onClick)
+        DayCard(day = day, monthNumber = monthNumber, hourlyRate = hourlyRate, onClick = onClick)
     })
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun DayCard(day: WorkDay, hourlyRate: Double, onClick: () -> Unit) {
+private fun DayCard(day: WorkDay, monthNumber: Int, hourlyRate: Double, onClick: () -> Unit) {
     val earned = day.hours * hourlyRate
     GlassCard(Modifier.fillMaxWidth().combinedClickable(onClick = onClick, onLongClick = {})) {
         Row(Modifier.padding(18.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("${day.dayOfMonth} ${monthNameShort(LocalMonth.currentMonth)}", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("${day.dayOfMonth} ${monthNameShort(monthNumber)}", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text(if (day.isWorked) "Работал" else "Не работал", color = if (day.isWorked) PositiveGreen else SoftText, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 if (day.isWorked) {
                     Text(day.workName.ifBlank { "Без названия" }, color = Color.White.copy(alpha = 0.88f), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -491,11 +497,9 @@ private fun DayCard(day: WorkDay, hourlyRate: Double, onClick: () -> Unit) {
     }
 }
 
-private object LocalMonth { var currentMonth: Int = 1 }
 
 @Composable
 private fun BottomStatsBar(month: WorkMonth, onAdd: () -> Unit) {
-    LocalMonth.currentMonth = month.month
     Box(Modifier.padding(horizontal = 16.dp, vertical = 10.dp).padding(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding())) {
         GlassCard(Modifier.fillMaxWidth()) {
             Row(Modifier.padding(horizontal = 18.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -531,7 +535,7 @@ private fun AddMonthDialog(vm: WorkHoursAndroidViewModel, onDismiss: () -> Unit)
         WheelRow("Месяц", (1..12).map { it to monthName(it) }, month) { month = it }
         WheelRow("Год", ((nowYear - 5)..(nowYear + 5)).map { it to it.toString() }, year) { year = it }
         OutlinedTextField(value = rate, onValueChange = { rate = it }, label = { Text("Ставка за час") }, placeholder = { Text("31.4") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), singleLine = true, modifier = Modifier.fillMaxWidth())
-        if (!vm.canCreateMonth(year, month)) Text("Этот месяц уже создан", color = Color(0xFFFF5C8A))
+        if (!vm.canCreateMonth(year, month)) Text("Этот месяц уже создан", color = DangerRed)
         DialogButtons(onDismiss, enabled = canCreate) { vm.createMonth(year, month, parsed); onDismiss() }
     }
 }
@@ -579,7 +583,7 @@ private fun MonthActionDialog(month: WorkMonth, onDismiss: () -> Unit, onDelete:
         text = {
             Column {
                 TextButton(onClick = onChangeRate) { Text("Изменить ставку", color = CyanGlow) }
-                TextButton(onClick = onDelete) { Text("Удалить месяц", color = Color(0xFFFF5C8A)) }
+                TextButton(onClick = onDelete) { Text("Удалить месяц", color = DangerRed) }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Готово", color = CyanGlow) } }
@@ -687,9 +691,3 @@ private fun monthNameShort(month: Int) = listOf("янв", "фев", "мар", "�
 private fun daysInMonth(month: Int, year: Int): Int = when (month) { 4, 6, 9, 11 -> 30; 2 -> if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) 29 else 28; else -> 31 }
 private fun minuteText(minutes: Int) = "${(minutes / 60).toString().padStart(2, '0')}:${(minutes % 60).toString().padStart(2, '0')}"
 
-private val NeonBlack = Color(0xFF02000F)
-private val GlassSurface = Color(0xFF141426)
-private val CyanGlow = Color(0xFF00EFFF)
-private val PurpleGlow = Color(0xFF8B5CFF)
-private val SoftText = Color.White.copy(alpha = 0.68f)
-private val PositiveGreen = Color(0xFF65F08B)
