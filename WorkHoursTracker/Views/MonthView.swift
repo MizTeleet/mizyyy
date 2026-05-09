@@ -8,6 +8,7 @@ struct MonthView: View {
     @State private var addButtonPressed = false
     @State private var appeared = false
     @State private var isEditingRate = false
+    @State private var headerCollapse: CGFloat = 0
 
     let monthID: WorkMonth.ID
 
@@ -20,33 +21,54 @@ struct MonthView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottomTrailing) {
+        ZStack {
             AppBackground()
 
             VStack(spacing: 0) {
                 if let month {
-                    List {
-                        Section {
+                    ScrollView(showsIndicators: false) {
+                        LazyVStack(spacing: 14) {
+                            scrollOffsetReader
+
+                            monthHeader(month)
+                                .opacity(1 - headerCollapse)
+                                .offset(y: -34 * headerCollapse)
+                                .scaleEffect(1 - 0.025 * headerCollapse, anchor: .topLeading)
+                                .animation(.easeInOut(duration: 0.18), value: headerCollapse)
+
                             ForEach(days) { day in
-                                DayRowView(day: day)
-                                    .listRowInsets(EdgeInsets(top: 7, leading: 16, bottom: 7, trailing: 16))
-                                    .listRowSeparator(.hidden)
-                                    .listRowBackground(Color.clear)
+                                DayRowView(day: day, hourlyRate: month.hourlyRate)
                                     .onTapGesture {
                                         editingDay = day
                                     }
-                                    .transition(.asymmetric(insertion: .scale.combined(with: .opacity), removal: .opacity))
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) {
+                                            viewModel.deleteDay(day.id, from: monthID)
+                                        } label: {
+                                            Label("Удалить", systemImage: "trash")
+                                        }
+                                    }
+                                    .contextMenu {
+                                        Button(role: .destructive) {
+                                            viewModel.deleteDay(day.id, from: monthID)
+                                        } label: {
+                                            Label("Удалить", systemImage: "trash")
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .transition(.asymmetric(insertion: .scale(scale: 0.98).combined(with: .opacity), removal: .opacity))
                             }
-                            .onDelete { offsets in
-                                viewModel.deleteDays(at: offsets, from: monthID)
-                            }
-                        } header: {
-                            monthHeader(month)
-                                .listRowInsets(EdgeInsets())
+                        }
+                        .padding(.top, 12)
+                        .padding(.bottom, 22)
+                    }
+                    .coordinateSpace(name: "monthScroll")
+                    .onPreferenceChange(MonthScrollOffsetPreferenceKey.self) { value in
+                        let collapse = min(max(-value / 120, 0), 1)
+                        if abs(headerCollapse - collapse) > 0.01 {
+                            headerCollapse = collapse
                         }
                     }
-                    .listStyle(.plain)
-                    .scrollContentBackground(.hidden)
 
                     totalBar
                 } else {
@@ -61,14 +83,8 @@ struct MonthView: View {
                 }
             }
             .opacity(appeared ? 1 : 0)
-            .offset(y: appeared ? 0 : 12)
-            .animation(.easeInOut(duration: 0.28), value: appeared)
-
-            if month != nil {
-                addButton
-                    .padding(.trailing, 22)
-                    .padding(.bottom, 88)
-            }
+            .offset(y: appeared ? 0 : 10)
+            .animation(.spring(response: 0.34, dampingFraction: 0.88), value: appeared)
         }
         .navigationTitle(month.map { viewModel.title(for: $0) } ?? "Месяц")
         .navigationBarTitleDisplayMode(.inline)
@@ -101,17 +117,19 @@ struct MonthView: View {
         .onAppear { appeared = true }
     }
 
+    private var scrollOffsetReader: some View {
+        GeometryReader { proxy in
+            Color.clear
+                .preference(key: MonthScrollOffsetPreferenceKey.self, value: proxy.frame(in: .named("monthScroll")).minY)
+        }
+        .frame(height: 0)
+    }
+
     private func monthHeader(_ month: WorkMonth) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(viewModel.title(for: month))
                 .font(.largeTitle.bold())
-                .textCase(nil)
                 .foregroundStyle(themeManager.palette.primaryText)
-
-            Text("Свайпните запись влево, чтобы удалить её. Нажмите на день для редактирования.")
-                .font(.subheadline)
-                .textCase(nil)
-                .foregroundStyle(themeManager.palette.secondaryText)
 
             HStack(spacing: 10) {
                 Text("Ставка: \(Formatters.rate(month.hourlyRate))")
@@ -125,80 +143,100 @@ struct MonthView: View {
                 .buttonStyle(.bordered)
                 .tint(themeManager.palette.accent)
             }
+
+            Text("Прокрутите список: заголовок плавно скрывается. Нажмите на день для редактирования.")
+                .font(.subheadline)
+                .foregroundStyle(themeManager.palette.secondaryText)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 18)
-        .padding(.top, 14)
+        .padding(.top, 8)
         .padding(.bottom, 8)
     }
 
     private var totalBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Всего:")
-                    .font(.headline)
-                    .foregroundStyle(themeManager.palette.secondaryText)
+        HStack(spacing: 14) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("Всего часов")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(themeManager.palette.secondaryText)
 
-                Text("\(Formatters.hours(viewModel.totalHours(for: monthID))) часов")
-                    .font(.title3.bold())
-                    .foregroundStyle(themeManager.palette.primaryText)
-                    .animation(.easeInOut(duration: 0.25), value: viewModel.totalHours(for: monthID))
+                    Text("\(Formatters.hours(viewModel.totalHours(for: monthID)))")
+                        .font(.headline.bold())
+                        .foregroundStyle(themeManager.palette.primaryText)
+                        .animation(.easeInOut(duration: 0.22), value: viewModel.totalHours(for: monthID))
+                }
 
-                Spacer()
+                HStack(spacing: 6) {
+                    Text("Заработал")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(themeManager.palette.secondaryText)
+
+                    Text("\(Formatters.money(viewModel.totalEarnings(for: monthID))) zł")
+                        .font(.headline.bold())
+                        .foregroundStyle(themeManager.palette.positive)
+                        .animation(.easeInOut(duration: 0.22), value: viewModel.totalEarnings(for: monthID))
+                }
             }
 
-            HStack {
-                Text("Заработал:")
-                    .font(.headline)
-                    .foregroundStyle(themeManager.palette.secondaryText)
+            Spacer(minLength: 10)
 
-                Text(Formatters.money(viewModel.totalEarnings(for: monthID)))
-                    .font(.title3.bold())
-                    .foregroundStyle(themeManager.palette.accent)
-                    .animation(.easeInOut(duration: 0.25), value: viewModel.totalEarnings(for: monthID))
-
-                Spacer()
-            }
+            addButton
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, 18)
         .padding(.vertical, 14)
         .background(totalBarBackground)
+        .padding(.horizontal, 16)
+        .padding(.bottom, 10)
     }
 
-    @ViewBuilder
     private var totalBarBackground: some View {
-        if themeManager.selectedTheme == .glass {
-            Rectangle()
-                .fill(.ultraThinMaterial)
-                .ignoresSafeArea(edges: .bottom)
-        } else {
-            Rectangle()
-                .fill(themeManager.palette.elevatedSurface)
-                .ignoresSafeArea(edges: .bottom)
-        }
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(themeManager.palette.elevatedSurface.opacity(0.48))
+            .background(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(themeManager.palette.accent.opacity(0.28), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.30), radius: 16, x: 0, y: 10)
+            .shadow(color: themeManager.palette.accent.opacity(0.18), radius: 18, x: 0, y: 0)
     }
 
     private var addButton: some View {
         Button {
-            withAnimation(.spring(response: 0.24, dampingFraction: 0.55)) {
+            withAnimation(.spring(response: 0.24, dampingFraction: 0.62)) {
                 addButtonPressed = true
             }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.10) {
                 addButtonPressed = false
                 isAddingDay = true
             }
         } label: {
             Image(systemName: "plus")
-                .font(.title2.bold())
+                .font(.title3.bold())
                 .foregroundStyle(Color.black)
-                .frame(width: 62, height: 62)
+                .frame(width: 50, height: 50)
                 .background(Circle().fill(themeManager.palette.accent))
-                .shadow(color: themeManager.palette.accent.opacity(0.52), radius: 18, x: 0, y: 8)
+                .overlay(Circle().stroke(.white.opacity(0.35), lineWidth: 1))
+                .shadow(color: themeManager.palette.accent.opacity(0.38), radius: 12, x: 0, y: 6)
         }
         .buttonStyle(PremiumPressStyle())
-        .scaleEffect(addButtonPressed ? 0.88 : 1)
+        .scaleEffect(addButtonPressed ? 0.90 : 1)
         .rotationEffect(.degrees(addButtonPressed ? 90 : 0))
-        .animation(.spring(response: 0.25, dampingFraction: 0.55), value: addButtonPressed)
+        .animation(.spring(response: 0.24, dampingFraction: 0.62), value: addButtonPressed)
         .accessibilityLabel("Добавить день")
+    }
+}
+
+private struct MonthScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
     }
 }
 

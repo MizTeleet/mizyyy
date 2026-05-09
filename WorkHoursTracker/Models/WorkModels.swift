@@ -53,6 +53,7 @@ struct WorkDay: Identifiable, Codable, Equatable {
     let id: UUID
     var date: Date
     var isWorked: Bool
+    var workName: String
     var startTime: Date
     var endTime: Date
 
@@ -73,6 +74,7 @@ struct WorkDay: Identifiable, Codable, Equatable {
         id: UUID = UUID(),
         date: Date,
         isWorked: Bool = true,
+        workName: String = "",
         startTime: Date? = nil,
         endTime: Date? = nil,
         hours: Double = 8
@@ -82,6 +84,7 @@ struct WorkDay: Identifiable, Codable, Equatable {
         self.id = id
         self.date = normalizedDate
         self.isWorked = isWorked
+        self.workName = workName
         self.startTime = startTime ?? normalizedDate
         self.endTime = endTime ?? (calendar.date(byAdding: .minute, value: Int((hours * 60).rounded()), to: normalizedDate) ?? normalizedDate)
     }
@@ -90,6 +93,7 @@ struct WorkDay: Identifiable, Codable, Equatable {
         case id
         case date
         case isWorked
+        case workName
         case startTime
         case endTime
         case hours
@@ -101,6 +105,7 @@ struct WorkDay: Identifiable, Codable, Equatable {
         id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         date = calendar.startOfDay(for: try container.decode(Date.self, forKey: .date))
         isWorked = try container.decodeIfPresent(Bool.self, forKey: .isWorked) ?? true
+        workName = try container.decodeIfPresent(String.self, forKey: .workName) ?? ""
 
         if let decodedStart = try container.decodeIfPresent(Date.self, forKey: .startTime),
            let decodedEnd = try container.decodeIfPresent(Date.self, forKey: .endTime) {
@@ -118,6 +123,7 @@ struct WorkDay: Identifiable, Codable, Equatable {
         try container.encode(id, forKey: .id)
         try container.encode(date, forKey: .date)
         try container.encode(isWorked, forKey: .isWorked)
+        try container.encode(workName, forKey: .workName)
         try container.encode(startTime, forKey: .startTime)
         try container.encode(endTime, forKey: .endTime)
         try container.encode(hours, forKey: .hours)

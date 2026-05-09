@@ -3,20 +3,35 @@ import SwiftUI
 struct PremiumBackground: View {
     @EnvironmentObject private var themeManager: ThemeManager
     let animated: Bool
-    @State private var phase = false
 
     init(animated: Bool = true) {
         self.animated = animated
     }
 
     var body: some View {
-        ZStack {
+        Group {
+            if animated {
+                TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { timeline in
+                    background(elapsed: timeline.date.timeIntervalSinceReferenceDate)
+                }
+            } else {
+                background(elapsed: 0)
+            }
+        }
+        .animation(.easeInOut(duration: 0.28), value: themeManager.selectedTheme)
+    }
+
+    private func background(elapsed: TimeInterval) -> some View {
+        let phase = elapsed / 14.0
+        let slow = elapsed / 22.0
+
+        return ZStack {
             themeManager.palette.background.ignoresSafeArea()
 
             LinearGradient(
                 colors: gradientColors,
-                startPoint: animated && phase ? .topTrailing : .topLeading,
-                endPoint: animated && phase ? .bottomLeading : .bottomTrailing
+                startPoint: UnitPoint(x: 0.5 + 0.45 * cos(phase), y: 0.5 + 0.45 * sin(phase)),
+                endPoint: UnitPoint(x: 0.5 + 0.45 * cos(phase + .pi), y: 0.5 + 0.45 * sin(phase + .pi))
             )
             .ignoresSafeArea()
 
@@ -27,8 +42,8 @@ struct PremiumBackground: View {
                 endRadius: 165
             )
             .frame(width: 300, height: 300)
-            .blur(radius: animated && phase ? 30 : 22)
-            .offset(x: animated && phase ? -95 : -165, y: animated && phase ? -235 : -170)
+            .blur(radius: 24 + 6 * abs(sin(slow)))
+            .offset(x: -130 + 56 * cos(slow), y: -205 + 42 * sin(slow * 0.82))
 
             RadialGradient(
                 colors: [Color.purple.opacity(themeManager.selectedTheme == .glass ? 0.20 : 0.12), .clear],
@@ -37,14 +52,8 @@ struct PremiumBackground: View {
                 endRadius: 150
             )
             .frame(width: 280, height: 280)
-            .blur(radius: animated && phase ? 26 : 20)
-            .offset(x: animated && phase ? 160 : 105, y: animated && phase ? 235 : 185)
-        }
-        .animation(animated ? .easeInOut(duration: 9).repeatForever(autoreverses: true) : nil, value: phase)
-        .animation(.easeInOut(duration: 0.28), value: themeManager.selectedTheme)
-        .onAppear {
-            guard animated else { return }
-            phase = true
+            .blur(radius: 21 + 5 * abs(cos(slow * 0.9)))
+            .offset(x: 130 + 42 * sin(slow * 0.78), y: 210 + 36 * cos(slow))
         }
     }
 

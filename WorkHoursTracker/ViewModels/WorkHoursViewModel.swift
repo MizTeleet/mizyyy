@@ -106,9 +106,17 @@ final class WorkHoursViewModel: ObservableObject {
         guard let monthIndex = months.firstIndex(where: { $0.id == monthID }) else { return }
         let sortedDays = days(for: monthID)
         let idsToDelete = offsets.map { sortedDays[$0].id }
+        deleteDayIDs(idsToDelete, monthIndex: monthIndex)
+    }
 
+    func deleteDay(_ dayID: WorkDay.ID, from monthID: WorkMonth.ID) {
+        guard let monthIndex = months.firstIndex(where: { $0.id == monthID }) else { return }
+        deleteDayIDs([dayID], monthIndex: monthIndex)
+    }
+
+    private func deleteDayIDs(_ dayIDs: [WorkDay.ID], monthIndex: Int) {
         withAnimation(.easeInOut(duration: 0.22)) {
-            months[monthIndex].days.removeAll { idsToDelete.contains($0.id) }
+            months[monthIndex].days.removeAll { dayIDs.contains($0.id) }
         }
         persist()
     }

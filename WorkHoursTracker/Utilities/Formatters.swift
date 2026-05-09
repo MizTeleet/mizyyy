@@ -20,6 +20,13 @@ enum Formatters {
         decimal(value, maximumFractionDigits: 2)
     }
 
+    static func time(_ value: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "HH:mm"
+        return formatter.string(from: value)
+    }
+
     private static func decimal(_ value: Double, maximumFractionDigits: Int) -> String {
         let formatter = NumberFormatter()
         formatter.locale = Locale(identifier: "ru_RU")

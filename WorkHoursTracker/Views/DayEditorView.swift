@@ -10,6 +10,7 @@ struct DayEditorView: View {
 
     @State private var selectedDay: Int
     @State private var isWorked: Bool
+    @State private var workName: String
     @State private var startTime: Date
     @State private var endTime: Date
     @State private var formAppeared = false
@@ -25,6 +26,7 @@ struct DayEditorView: View {
         let calendar = Calendar.current
         _selectedDay = State(initialValue: calendar.component(.day, from: day.date))
         _isWorked = State(initialValue: day.isWorked)
+        _workName = State(initialValue: day.workName)
         _startTime = State(initialValue: day.startTime)
         _endTime = State(initialValue: day.endTime)
     }
@@ -84,6 +86,25 @@ struct DayEditorView: View {
 
                         Toggle("Работал", isOn: $isWorked.animation(.spring(response: 0.30, dampingFraction: 0.84)))
                             .tint(themeManager.palette.accent)
+
+                        if isWorked {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Название смены")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(themeManager.palette.secondaryText)
+
+                                TextField("Склад 1, Amazon, Night Shift", text: $workName)
+                                    .textFieldStyle(.plain)
+                                    .font(.headline)
+                                    .foregroundStyle(themeManager.palette.primaryText)
+                                    .padding(14)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                            .fill(themeManager.palette.elevatedSurface.opacity(0.72))
+                                    )
+                            }
+                            .transition(.opacity.combined(with: .move(edge: .top)))
+                        }
 
                         if isWorked {
                             VStack(spacing: 16) {
@@ -158,6 +179,7 @@ struct DayEditorView: View {
             id: dayID,
             date: selectedDate,
             isWorked: isWorked,
+            workName: workName.trimmingCharacters(in: .whitespacesAndNewlines),
             startTime: combinedDate(withTimeFrom: startTime),
             endTime: combinedDate(withTimeFrom: endTime)
         )
